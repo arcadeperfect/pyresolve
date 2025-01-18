@@ -3,6 +3,9 @@ from utils import get_active_clip, find_parent_bin, list_clips_in_bin
 from populate_bins import get_shot_paths, create_bins, populate_bins
 from mother import SequenceBin, Kernel, MediaType, FileType
 
+import logging
+logging.getLogger("pysequitur").setLevel(logging.WARNING)
+
 from pathlib import Path
 
 

@@ -1,6 +1,7 @@
 from enum import Enum, auto
 from pathlib import Path
 from lazy_prop import lazy_property
+from file_sequence import FileSequence, Components
 
 import os
 
@@ -199,23 +200,27 @@ class Kernel:
 
     def import_sequence(self, dir: Path, name: str, ext: str):
 
-
-        files = sorted(list(dir.glob(f"*.{ext}")))
+        seqs = FileSequence.match_components_in_path(
+            Components(
+                prefix=name,
+                extension=ext
+            ),
+            dir
+        )
         
-
-        # first_frame = str(files[0]).split(".")[-2]
-        # last_frame = str(files[-1]).split(".")[-2]
-        # padding = len(last_frame)
-
-        # return self.media_pool.ImportSequence(
-        #     [
-        #         {
-        #             "FilePath": str(dir / name) + f".%0{padding}d.{ext}",
-        #             "StartIndex": int(first_frame),
-        #             "EndIndex": int(last_frame),
-        #         }
-        #     ]
-        # )
+        if len(seqs) == 0:
+            return None
+        
+        seq = seqs[0]
+        return self.media_pool.ImportMedia(
+            [
+                {
+                    "FilePath": str(dir / name) + f".%0{seq.padding}d.{ext}",
+                    "StartIndex": seq.first_frame,
+                    "EndIndex": seq.last_frame,
+                }
+            ]
+        )
 
     # def add_bins(self, names, parent = None):
     #     if parent is None:
