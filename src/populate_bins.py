@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from mother import Mother
+
+# from mother import Mother
 # shot_path = Path("P:\\directors\\cesar_pelizer\\krog81s01_coreHoliday\\production\\maya\\playblast\\shots")
 # 
 # sub_path = "ANM"
@@ -14,7 +15,7 @@ def get_shot_paths(shot_path, max_load, sub_path = ""):
 
 
         shot_name = shot.name
-        # print(f"{shot_name}")
+
         media_path = Path(shot) / sub_path
         if not media_path.is_dir():
             continue
@@ -23,7 +24,10 @@ def get_shot_paths(shot_path, max_load, sub_path = ""):
                 if playblast.is_file()
                 and playblast.suffix == ".mov"][-max_load:]
 
+    print("done")
     return shots
+
+
 
 def create_bins(parent, names, mother):
 
