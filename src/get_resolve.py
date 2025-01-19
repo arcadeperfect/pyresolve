@@ -5,6 +5,7 @@ This file serves to return a DaVinci Resolve object
 """
 
 import sys
+from _types import Resolve
 
 def load_source(module_name, file_path):
     if sys.version_info[0] >= 3 and sys.version_info[1] >= 5:
@@ -23,7 +24,7 @@ def load_source(module_name, file_path):
         return imp.load_source(module_name, file_path)
 
 
-def GetResolve():
+def GetResolve() -> Resolve:
     try:
         # The PYTHONPATH needs to be set correctly for this import statement to work.
         # An alternative is to import the DaVinciResolveScript by specifying absolute path (see ExceptionHandler logic)

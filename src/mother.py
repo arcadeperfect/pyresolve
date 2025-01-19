@@ -1,7 +1,20 @@
 from enum import Enum, auto
 from pathlib import Path
+from typing import Optional
 from lazy_prop import lazy_property
 from file_sequence import FileSequence, Components
+
+from _types import (        Project,
+        Timeline,
+        MediaPool,
+        TimelineItem,
+        Folder,
+        MediaPoolItem,
+        MediaStorage,
+        ProjectManager,
+        Resolve,
+        PyRemoteObject,
+        )
 
 import os
 
@@ -13,7 +26,7 @@ class SequenceBin:
         path: Path,
         sub_path: str,
         file_type: "FileType",
-        parent,
+        parent: "Folder",
         kernel: "Kernel",
     ):
         if not isinstance(name, str):
@@ -45,16 +58,16 @@ class SequenceBin:
         self.shot_bins = None
 
     @property
-    def shot_paths(self):
+    def shot_paths(self) -> list[Path]: 
         return [p for p in (self.path).iterdir() if p.is_dir()]
 
     @property
-    def resolve_folder(self):
+    def resolve_folder(self) -> Folder:
         if self._resolve_folder is None:
             self._resolve_folder = self.create_resolve_folder()
         return self._resolve_folder
 
-    def create_resolve_folder(self):
+    def create_resolve_folder(self) -> Folder:
         print("Creating resolve folder")
         for folder in self.parent.GetSubFolderList():
             if folder.GetName() == self.name:
@@ -62,7 +75,7 @@ class SequenceBin:
 
         return self.kernel.media_pool.AddSubFolder(self.parent, self.name)
 
-    def create_shot_bins(self):
+    def create_shot_bins(self) -> dict[str, "ShotBin"]:
         bins = {}
         for shot_path in self.shot_paths:
             shot_name = shot_path.name
@@ -85,10 +98,9 @@ class ShotBin:
         name: str,
         path: Path,
         file_type: "FileType",
-        resolve_folder,
+        resolve_folder: Folder,
         kernel: "Kernel",
     ):
-        
         if not isinstance(name, str):
             raise TypeError("name must be a string")
 
@@ -111,81 +123,93 @@ class ShotBin:
         self.folder = resolve_folder
         self.kernel = kernel
 
-    # def populate(self, depth):
-
-    def populate_bin(self, depth):
-        self.kernel.set_current_folder(self.folder)
+    def populate_bin(self, depth: int):
 
         folder_contents = self.list_clip_names_in_bin()
 
+        clip_paths = self.list_clip_paths_on_disk() if depth < 1 else self.list_clip_paths_on_disk()[-depth:]
+
         if self.media_type == MediaType.MOVIE:
-            for clip_path in self.list_clip_paths_on_disk()[-depth:]:
-                if clip_path.name in folder_contents:
+            for clip_path in clip_paths:
+                if clip_path.stem in folder_contents:
+                    print(f"{clip_path.stem} already in bin")
                     continue
 
-                self.kernel.import_movie(clip_path)
+                self.kernel.import_movie(clip_path, self.folder)
 
         if self.media_type == MediaType.SEQUENCE:
-            for clip_path in self.list_clip_paths_on_disk()[-depth:]:
-                if clip_path.name in folder_contents:
+            for clip_path in clip_paths:
+                if clip_path.stem in folder_contents:
+                    print(f"{clip_path.stem} already in bin")
                     continue
 
                 self.kernel.import_sequence(
-                    clip_path, clip_path.name, self.file_type.name.lower()
+                    clip_path, clip_path.name, self.file_type.name.lower(), self.folder
                 )
 
-    def list_clip_names_in_bin(self):
-        return [clip.GetName() for clip in self.folder.GetClipList()]
+    def list_clip_names_in_bin(self) -> list[str]:
+        return [clip.GetName().split(".")[0] for clip in self.folder.GetClipList()]
 
-    def list_clip_paths_on_disk(self):
+    def list_clip_paths_on_disk(self) -> list[Path]:
         if self.media_type == MediaType.MOVIE:
             return [p for p in self.path.iterdir() if p.is_file()]
         elif self.media_type == MediaType.SEQUENCE:
             return [p for p in self.path.iterdir() if p.is_dir()]
 
-    def query_up(self, shot_stem):
-        print(shot_stem)
+    def query_up(self, current_clip_name: str, sort_mode: "SortMode"):
+        print(current_clip_name)
 
     def query_down(self, shot_stem):
         print(shot_stem)
 
 
 class Kernel:
-    def __init__(self, resolve):
+    def __init__(self, resolve: Resolve):
         self.resolve = resolve
 
     @lazy_property
-    def project(self):
+    def project(self) -> Project:
         return self.resolve.GetProjectManager().GetCurrentProject()
 
     @lazy_property
-    def current_timeline(self):
+    def current_timeline(self) -> Optional[Timeline]:
+        """
+        Returns the currently loaded timeline.
+
+        """
         return self.project.GetCurrentTimeline()
 
     @lazy_property
-    def media_pool(self):
+    def media_pool(self) -> MediaPool:
         return self.project.GetMediaPool()
 
     @lazy_property
-    def media_storage(self):
+    def media_storage(self) -> MediaStorage:
         return self.resolve.GetMediaStorage()
 
     @lazy_property
-    def root_bin(self):
+    def root_bin(self) -> Folder:
         return self.media_pool.GetRootFolder()
 
     @property
-    def active_timeline_item(self):
+    def active_timeline_item(self) -> TimelineItem:
+        """
+        Returns the currently active timeline item, as defined by the playhead (not selection).
+        """
         return self.current_timeline.GetCurrentVideoItem()
 
     @property
-    def active_media_item(self):
+    def active_media_item(self) -> MediaPoolItem:
+        """
+        Returns the media pool item of the currently active timeline item, as defined by the playhead (not selection).
+        """
+
         return self.active_timeline_item.GetMediaPoolItem()
 
-    def set_current_folder(self, bin):
+    def set_current_folder(self, bin: Folder):
         self.media_pool.SetCurrentFolder(bin)
 
-    def add_bin(self, name, parent=None):
+    def add_bin(self, name: str, parent: Folder = None) -> Folder:
         if parent is None:
             parent = self.root_bin
         existing_bins = {bin.GetName(): bin for bin in parent.GetSubFolderList()}
@@ -194,24 +218,21 @@ class Kernel:
             return existing_bins[name]
         return self.media_pool.AddSubFolder(parent, name)
 
-    def import_movie(self, path: Path):
+    def import_movie(self, path: Path, folder: Folder) -> MediaPoolItem:
         print(f"Importing {path}")
+        self.set_current_folder(folder)
         return self.media_storage.AddItemListToMediaPool(str(path))
 
-    def import_sequence(self, dir: Path, name: str, ext: str):
+    def import_sequence(self, dir: Path, name: str, ext: str, folder: Folder) -> MediaPoolItem:
+        self.set_current_folder(folder)
 
-        seqs = FileSequence.match_components_in_path(
-            Components(
-                prefix=name,
-                extension=ext
-            ),
-            dir
-        )
-        
+        seqs = FileSequence.match_components_in_path(Components(extension=ext), dir)
+
         if len(seqs) == 0:
             return None
-        
+
         seq = seqs[0]
+        print(f"Importing {seq.sequence_string} from {dir}")
         return self.media_pool.ImportMedia(
             [
                 {
@@ -221,6 +242,9 @@ class Kernel:
                 }
             ]
         )
+
+    def list_clip_names_in_folder(self, folder : Folder) -> list[str]:
+        return [clip.GetName() for clip in folder.GetClipList()]
 
     # def add_bins(self, names, parent = None):
     #     if parent is None:
@@ -251,3 +275,7 @@ class FileType(Enum):
     PNG = MediaType.SEQUENCE
     MOV = MediaType.MOVIE
     MP4 = MediaType.MOVIE
+
+class SortMode(Enum):
+    VERSIONPARSE = auto()
+    TIMESTAMP = auto()
