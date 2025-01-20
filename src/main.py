@@ -11,18 +11,26 @@ from _types import (
     Resolve,
     PyRemoteObject,
 )
-from mother import Kernel
+from mother import Kernel, ShotBin, SortMode
+
+from datetime import datetime
 
 resolve = GetResolve()
 
-kernal = Kernel(resolve)
+kernel = Kernel(resolve)
 
-current = kernal.active_timeline_item
-
-print(current.GetName())
-
+current = kernel.active_timeline_item
 mpi = current.GetMediaPoolItem()
 
-p = mpi.GetName()
+# print(current.GetSourceStartFrame())
 
-print(p)
+
+shotbin = ShotBin.from_media_pool_item(mpi, kernel)
+
+t1 = datetime.now()
+newclip = shotbin.query_up(current, SortMode.VERSIONPARSE)
+t2 = datetime.now()
+print(t2 - t1)
+
+
+# print(newclip)

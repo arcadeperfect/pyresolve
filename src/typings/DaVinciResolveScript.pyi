@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any, Protocol, TypedDict, Union
+from typing import Optional, List, Dict, Any, Protocol, TypedDict, Union, overload
 
 
 
@@ -24,11 +24,9 @@ class Folder(PyRemoteObject):
         """
         ...
 
-    def GetClipList(self) -> Any:
-        """TODO: Add method docstring.
-
+    def GetClipList(self) -> List[MediaPoolItem]:
         
-        """
+        """Returns a list of MediaPoolItem objects that are children of this folder."""
         ...
 
     def GetClips(self) -> Any:
@@ -89,7 +87,7 @@ class Folder(PyRemoteObject):
 class MediaPool(PyRemoteObject):
     """TODO: Add docstring."""
 
-    def AddSubFolder(self) -> Any:
+    def AddSubFolder(self, folder: Folder, name: str) -> Folder:
         """TODO: Add method docstring.
 
         
@@ -215,12 +213,36 @@ class MediaPool(PyRemoteObject):
         """
         ...
 
-    def ImportMedia(self) -> Any:
-        """TODO: Add method docstring.
+    @overload
+    def ImportMedia(self, items: List[str]) -> List["MediaPoolItem"]:
+        """Imports specified file/folder paths into current Media Pool folder.
 
-        
+        Args:
+            items: Array of file/folder paths.
+
+        Returns:
+            List of MediaPoolItems created from the import.
         """
         ...
+
+    @overload 
+    def ImportMedia(self, items: List[Dict[str, Union[str, int]]]) -> List["MediaPoolItem"]:
+        """Imports file paths into current Media Pool folder using clip info specifications.
+
+        Args:
+            items: List of clipInfo dictionaries. Each dict can contain:
+                  - "FilePath": str (e.g. "file_%03d.dpx")
+                  - "StartIndex": int 
+                  - "EndIndex": int
+
+        Returns:
+            List of MediaPoolItems created from the import.
+        """
+        ...
+
+    # def ImportMedia(self, items: Union[List[str], List[Dict[str, Union[str, int]]]]) -> List["MediaPoolItem"]:
+    #     """Implementation of ImportMedia that handles both overloaded cases."""
+    #     ...
 
     def ImportTimelineFromFile(self) -> Any:
         """TODO: Add method docstring.
@@ -264,7 +286,7 @@ class MediaPool(PyRemoteObject):
         """
         ...
 
-    def SetCurrentFolder(self) -> Any:
+    def SetCurrentFolder(self, folder: Folder) -> bool:
         """TODO: Add method docstring.
 
         
@@ -365,11 +387,82 @@ class MediaPoolItem(PyRemoteObject):
         """
         ...
 
-    def GetClipProperty(self) -> Any:
-        """TODO: Add method docstring.
-
-        
+    #def GetClipProperty(self, key: str) -> Dict[str, Any]:
+    def GetClipProperty(self, key: str) -> Any:
         """
+        Properties dictionary. Available keys:
+
+        | Property                   | Type  |
+        | -------------------------- | ----- |
+        | Alpha mode                 | str   |
+        | Angle                      | str   |
+        | Audio Bit Depth            | str   |
+        | Audio Ch                   | str   |
+        | Audio Codec                | str   |
+        | Audio Offset               | str   |
+        | Bit Depth                  | str   |
+        | Camera #                   | str   |
+        | Clip Color                 | str   |
+        | Clip Name                  | str   |
+        | Cloud Sync                 | str   |
+        | Comments                   | str   |
+        | Data Level                 | str   |
+        | Date Added                 | str   |
+        | Date Created               | str   |
+        | Date Modified              | str   |
+        | Description                | str   |
+        | Drop frame                 | str   |
+        | Duration                   | str   |
+        | Enable Deinterlacing       | str   |
+        | End                        | str   |
+        | End TC                     | str   |
+        | FPS                        | float |
+        | Field Dominance            | str   |
+        | File Name                  | str   |
+        | File Path                  | str   |
+        | Flags                      | str   |
+        | Format                     | str   |
+        | Frames                     | str   |
+        | Good Take                  | str   |
+        | H-FLIP                     | str   |
+        | IDT                        | str   |
+        | In                         | str   |
+        | Input Color Space          | str   |
+        | Input LUT                  | str   |
+        | Input Sizing Preset        | str   |
+        | Keyword                    | str   |
+        | Noise Reduction            | str   |
+        | Offline Reference          | str   |
+        | Online Status              | str   |
+        | Out                        | str   |
+        | PAR                        | str   |
+        | Proxy                      | str   |
+        | Proxy Media Path           | str   |
+        | Reel Name                  | str   |
+        | Resolution                 | str   |
+        | Roll/Card                  | str   |
+        | S3D Sync                   | str   |
+        | Sample Rate                | str   |
+        | Scene                      | str   |
+        | Sharpness                  | str   |
+        | Shot                       | str   |
+        | Slate TC                   | str   |
+        | Start                      | str   |
+        | Start KeyKode              | str   |
+        | Start TC                   | str   |
+        | SuperScale Noise Reduction | str   |
+        | SuperScale Sharpness       | str   |
+        | Synced Audio               | str   |
+        | Take                       | str   |
+        | Transcription Status       | str   |
+        | Type                       | str   |
+        | Uploaded From              | str   |
+        | Usage                      | str   |
+        | V-FLIP                     | str   |
+        | Video Codec                | str   |
+        | Super Scale                | int   |
+            
+    """
         ...
 
     def GetFlagList(self) -> Any:
@@ -700,7 +793,7 @@ class Project(PyRemoteObject):
         """
         ...
 
-    def GetMediaPool(self) -> Any:
+    def GetMediaPool(self) -> MediaPool:
         """TODO: Add method docstring.
 
         
@@ -1004,7 +1097,7 @@ class ProjectManager(PyRemoteObject):
         """
         ...
 
-    def GetCurrentFolder(self) -> Any:
+    def GetCurrentFolder(self) -> Folder:
         """TODO: Add method docstring.
 
         
@@ -1741,9 +1834,20 @@ class TimelineItem(PyRemoteObject):
         """
         ...
 
-    def AddTake(self) -> Any:
-        """TODO: Add method docstring.
+    def AddTake(self, 
+                media_pool_item: "MediaPoolItem", 
+                start_frame: Optional[int], 
+                end_frame: Optional[int]) -> bool:
+        """
+        Adds a new take to take selector. It will initialise this timeline item as take selector if it’s not already one. Arguments startFrame and endFrame are optional, and if not specified the entire clip will be added.
 
+        Args:
+            media_pool_item (MediaPoolItem): Media pool item
+            start_frame (int): Start frame
+            end_frame (int): End frame
+
+        Returns:
+            bool    
         
         """
         ...
@@ -1846,9 +1950,9 @@ class TimelineItem(PyRemoteObject):
         """
         ...
 
-    def FinalizeTake(self) -> Any:
-        """TODO: Add method docstring.
-
+    def FinalizeTake(self) -> bool:
+        """
+        Finalize take and discard the rest
         
         """
         ...
@@ -2095,9 +2199,9 @@ class TimelineItem(PyRemoteObject):
         """
         ...
 
-    def GetSourceEndFrame(self) -> Any:
-        """TODO: Add method docstring.
-
+    def GetSourceEndFrame(self) -> int:
+        """
+        Get the out point of the source clip in the current timeline item.
         
         """
         ...
@@ -2109,9 +2213,9 @@ class TimelineItem(PyRemoteObject):
         """
         ...
 
-    def GetSourceStartFrame(self) -> Any:
-        """TODO: Add method docstring.
-
+    def GetSourceStartFrame(self) -> int:
+        """
+        Get the in point of the source clip in the current timeline item.
         
         """
         ...
@@ -2158,10 +2262,10 @@ class TimelineItem(PyRemoteObject):
         """
         ...
 
-    def GetTakesCount(self) -> Any:
-        """TODO: Add method docstring.
-
-        
+    def GetTakesCount(self) -> int:
+        """
+        Return the number of takes in the current timeline item
+        A take is an instance of MediaPoolItem
         """
         ...
 
@@ -2256,9 +2360,9 @@ class TimelineItem(PyRemoteObject):
         """
         ...
 
-    def SelectTakeByIndex(self) -> Any:
-        """TODO: Add method docstring.
-
+    def SelectTakeByIndex(self, int) -> bool:
+        """
+        Select a take by index
         
         """
         ...
