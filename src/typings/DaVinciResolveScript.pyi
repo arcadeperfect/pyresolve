@@ -29,9 +29,10 @@ class Folder(PyRemoteObject):
         """Returns a list of MediaPoolItem objects that are children of this folder."""
         ...
 
-    def GetClips(self) -> Any:
-        """TODO: Add method docstring.
-
+    def GetClips(self) -> dict[int, MediaPoolItem]:
+        """
+        Return a dictionary of the contained MediaPoolItems with integers as the keys,
+        starting from 1
         
         """
         ...
@@ -56,9 +57,10 @@ class Folder(PyRemoteObject):
         """
         ...
 
-    def GetSubFolders(self) -> Any:
-        """TODO: Add method docstring.
-
+    def GetSubFolders(self) -> dict[int, Folder]:
+        """
+        Return a dictionary of the contained Folders with integers as the keys,
+        starting from 1
         
         """
         ...
@@ -527,10 +529,17 @@ class MediaPoolItem(PyRemoteObject):
         by TimelineItem. Not necessarily unique.
         """
         ...
-
-    def GetThirdPartyMetadata(self) -> Any:
-        """TODO: Add method docstring.
-
+    @overload
+    def GetThirdPartyMetadata(self) -> dict[str, str]:
+        """
+        Return the metadata as a dict
+        
+        """
+        ...
+    @overload
+    def GetThirdPartyMetadata(self, key) -> str:
+        """
+        Return the metadata by key
         
         """
         ...
@@ -591,9 +600,17 @@ class MediaPoolItem(PyRemoteObject):
         """
         ...
 
-    def SetThirdPartyMetadata(self) -> Any:
-        """TODO: Add method docstring.
-
+    @overload
+    def SetThirdPartyMetadata(self, key: str, value: str) -> bool:
+        """
+        Set arbitrary metadata by specifying key and value as separate arguments
+        
+        """
+        ...
+    @overload
+    def SetThirdPartyMetadata(self, data: dict[str, str]) -> bool:
+        """
+        Set arbitrary metadata by passing a dictionary, to be concatinated with existing data
         
         """
         ...

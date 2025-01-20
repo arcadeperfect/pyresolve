@@ -2,7 +2,7 @@ import re
 
 from enum import Enum, auto
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 # from lazy_prop import lazy_property
 from file_sequence import FileSequence, Components
@@ -197,7 +197,24 @@ class ShotBin:
 
         return []
 
-    def query_up(
+
+    @property
+    def versioned_clips_in_folder(self) -> dict[int, MediaPoolItem]:
+        return {
+            version: clip
+            for clip in self.folder.GetClipList()
+            if (version := ShotBin.parse_version_name(clip.GetName()))
+        }
+    
+    @property
+    def versioned_clips_on_disk(self) -> dict[int, Path]:
+        return {
+            version: clip_path
+            for clip_path in self.list_clip_paths_on_disk()
+            if (version := ShotBin.parse_version_name(clip_path.name))
+        }
+
+    def version_up(
         self, timeline_item: TimelineItem, sort_mode: "SortMode"
     ) -> Optional[MediaPoolItem]:
         media_pool_item = timeline_item.GetMediaPoolItem()
@@ -210,56 +227,41 @@ class ShotBin:
             if current_version is None:
                 return
 
-            clips_in_bin = {
-                version: clip
-                for clip in self.list_clips_in_bin()
-                if (version := ShotBin.parse_version_name(clip.GetName()))
-            }
+            clips_in_bin = self.versioned_clips_in_folder
 
             keys = sorted(list(clips_in_bin.keys()))
             next_up = min((x for x in keys if x > current_version), default=None)
 
             if next_up is not None:
                 new_clip = clips_in_bin[next_up]
-                timeline_item.AddTake(
-                    new_clip,
-                    timeline_item.GetSourceStartFrame(),
-                    timeline_item.GetSourceEndFrame(),
-                )
+            
+            else:
 
-                timeline_item.SelectTakeByIndex(2)
-                timeline_item.FinalizeTake()
-                return new_clip
+                versions_on_disk = self.versioned_clips_on_disk
+                keys = sorted(list(versions_on_disk.keys()))
+                next_up = min((x for x in keys if x > current_version), default=None)
 
-            versions_on_disk = {
-                version: (clip_path)
-                for clip_path in self.list_clip_paths_on_disk()
-                if (version := ShotBin.parse_version_name(clip_path.name))
-            }
-
-            keys = sorted(list(versions_on_disk.keys()))
-            next_up = min((x for x in keys if x > current_version), default=None)
-
-            if next_up is None:
-                return
-
-            found = None
-            while found is None:
-                pth = versions_on_disk[next_up]
-                seqs = FileSequence.find_sequences_in_path(pth)
-                if seqs:
-                    found = seqs[0]
-                    break
-                next_up = min((x for x in keys if x > next_up), default=None)
                 if next_up is None:
-                    break
+                    return
 
-            if not found:
-                return
+                found = None
+                while found is None:
+                    pth = versions_on_disk[next_up]
+                    seqs = FileSequence.find_sequences_in_path(pth)
+                    if seqs:
+                        found = seqs[0]
+                        break
+                    next_up = min((x for x in keys if x > next_up), default=None)
+                    if next_up is None:
+                        break
 
-            new_clip = self.kernel.import_sequence(
-                found.directory, found.prefix, found.extension, self.folder
-            )
+                if not found:
+                    return
+
+                new_clip = self.kernel.import_sequence(
+                    found.directory, found.prefix, found.extension, self.folder
+                )
+            
 
             if new_clip is None:
                 return
@@ -275,15 +277,7 @@ class ShotBin:
 
             return new_clip
 
-    # def import_clip(self, clip_path: Path) -> Optional[MediaPoolItem]:
 
-    #     if self.media_type == MediaType.MOVIE:
-    #         return self.kernel.import_movie(clip_path, self.folder)
-
-    #     if self.media_type == MediaType.SEQUENCE:
-    #         return self.kernel.import_sequence(
-    #             clip_path.parent, clip_path.name, self.file_type.name.lower(), self.folder
-    #         )
 
     def query_down(self, shot_stem):
         print(shot_stem)
@@ -437,7 +431,7 @@ class Kernel:
     def find_parent_bin(self, media_pool_item: MediaPoolItem) -> Optional[Folder]:
         # No function in the python api to get the parent bin of a clip, so we have to search
 
-        def search_bins(folder, target_clip):
+        def search_bins(folder: Folder, target_clip: MediaPoolItem):
             clips = folder.GetClipList()
             for clip in clips:
                 if clip.GetMediaId() == target_clip.GetMediaId():
@@ -452,6 +446,34 @@ class Kernel:
             return None
 
         return search_bins(self.root_folder, media_pool_item)
+
+
+    def find_bin_path(self, media_pool_item: MediaPoolItem) -> Optional[Tuple[Folder, list[int], int]]:
+
+        path = []
+
+        def search_bins(folder: Folder, target_clip: MediaPoolItem, path: list[int]):
+            clips = folder.GetClips()
+            for index, clip in clips.items():
+                if clip.GetMediaId() == target_clip.GetMediaId():
+                    return (folder, path, index)
+                
+            subfolders = folder.GetSubFolders()
+            for index, folder in subfolders.items():
+                if not index:
+                    continue
+                result = search_bins(
+                    folder, target_clip, [*path, index]
+                )
+                if result:
+                    return result
+            return None
+        
+        return search_bins(self.root_folder, media_pool_item, path)
+
+                
+
+            
 
 
 class MediaType(Enum):
