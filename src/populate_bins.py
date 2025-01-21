@@ -1,15 +1,8 @@
 from pathlib import Path
 
 
-# from mother import Mother
-# shot_path = Path("P:\\directors\\cesar_pelizer\\krog81s01_coreHoliday\\production\\maya\\playblast\\shots")
-# 
-# sub_path = "ANM"
-# max_load = 5
-
-
-def get_shot_paths(shot_path, max_load, sub_path = ""):
-    shot_dirs = [p for p in shot_path.iterdir() if p.is_dir()]
+def get_shot_paths(shot_root, max_load, sub_path = ""):
+    shot_dirs = [p for p in shot_root.iterdir() if p.is_dir()]
     shots = {}
     for shot in shot_dirs:
 
