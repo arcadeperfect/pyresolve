@@ -927,7 +927,7 @@ class FileSequence:
 
         return new_sequence
 
-    def check_copy():
+    def check_copy(self):
         # TODO implement this
         raise NotImplementedError
 
@@ -950,7 +950,7 @@ class FileSequence:
         # TODO check if any of the new filesnames collide with existing files before proceeding
 
         if offset == 0:
-            return
+            return None
 
         if self.first_frame + offset < 0:
             raise ValueError("offset would yield negative frame numbers")
@@ -1371,9 +1371,9 @@ class ItemParser:
         frame_string = str(frame).zfill(components.padding)
 
         item = Item(
-            prefix=components.prefix,
+            prefix=components.prefix, # type: ignore
             frame_string=frame_string,
-            extension=components.extension,
+            extension=components.extension, # type: ignore
             delimiter=components.delimiter,
             suffix=components.suffix,
             directory=directory,

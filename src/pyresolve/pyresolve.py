@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 # from lazy_prop import lazy_property
-from file_sequence import FileSequence, Components
+from .file_sequence import FileSequence, Components
 
-from _types import (
+from ._types import (
     Project,
     Timeline,
     MediaPool,
@@ -67,7 +67,7 @@ class SequenceBin:
         return [p for p in (self.path).iterdir() if p.is_dir()]
 
     @property
-    def resolve_bin(self) -> Folder:
+    def resolve_bin(self) -> Optional[Folder]:
         """A reference to the resolve bin"""
         if self._resolve_folder is None:
             self._resolve_folder = self.create_folder()
@@ -329,18 +329,31 @@ class ShotBin:
 
             return new_clip
 
+        return None
 
     def version_down(
             self, timeline_item: TimelineItem, sort_mode: "SortMode"
         ) -> Optional[MediaPoolItem]:
+            
+            """
+            TODO better to always query the disk to get the next version,
+            then check if it's already in the bin, rather than check the bin first
+            and fall back to the disk
+
+            both simpler and more robust, performance cost probably negligible
+            """
+
+
             media_pool_item = timeline_item.GetMediaPoolItem()
 
             if sort_mode == SortMode.VERSIONPARSE:
 
-                name = media_pool_item.GetName()
-                current_version_number = ShotBin.parse_version_number(name)
+                name = media_pool_item.GetName().split(".")[0]
+                # current_version_number = ShotBin.parse_version_number(name)
 
-                if current_version_number is None:
+                # if current_version_number is None:
+                #     return
+                if (current_version_number := ShotBin.parse_version_number(name)) is None:
                     return
 
                 clips_in_bin = self.versioned_clips_in_folder
@@ -394,6 +407,9 @@ class ShotBin:
                 timeline_item.FinalizeTake()
 
                 return new_clip
+                
+
+            return None
 
     @staticmethod
     def parse_version_number(name: str) -> Optional[int]:
@@ -524,65 +540,7 @@ class Kernel:
     def list_clip_names_in_folder(self, folder: Folder) -> list[str]:
         return [clip.GetName() for clip in folder.GetClipList()]
 
-    # def add_bins(self, names, parent = None):
-    #     if parent is None:
-    #         parent = self.root_bin
-
-    #     existing_bins = {bin.GetName():bin for bin in parent.GetSubFolderList()}
-
-    #     bins = []
-    #     for name in names:
-    #         if name in existing_bins.keys():
-    #             print(f"Bin {name} already exists")
-    #             bins.append(existing_bins[name])
-    #             continue
-    #         bin = self.media_pool.AddSubFolder(parent, name)
-    #         bins.append(bin)
-
-    #     return bins
-
-    # def find_parent_bin(self, media_pool_item: MediaPoolItem) -> Optional[Folder]:
-    #     # No function in the python api to get the parent bin of a clip, so we have to search
-
-    #     def search_bins(folder: Folder, target_clip: MediaPoolItem):
-    #         clips = folder.GetClipList()
-    #         for clip in clips:
-    #             if clip.GetMediaId() == target_clip.GetMediaId():
-    #                 return folder
-
-    #         # Check subfolders
-    #         subfolders = folder.GetSubFolderList()
-    #         for subfolder in subfolders:
-    #             result = search_bins(subfolder, target_clip)
-    #             if result:
-    #                 return result
-    #         return None
-
-    #     return search_bins(self.root_folder, media_pool_item)
-
-
-    # def find_bin_path(self, media_pool_item: MediaPoolItem) -> Optional[Tuple[Folder, list[int], int]]:
-
-    #     path = []
-
-    #     def search_bins(folder: Folder, target_clip: MediaPoolItem, path: list[int]):
-    #         clips = folder.GetClips()
-    #         for index, clip in clips.items():
-    #             if clip.GetMediaId() == target_clip.GetMediaId():
-    #                 return (folder, path, index)
-                
-    #         subfolders = folder.GetSubFolders()
-    #         for index, folder in subfolders.items():
-    #             if not index:
-    #                 continue
-    #             result = search_bins(
-    #                 folder, target_clip, [*path, index]
-    #             )
-    #             if result:
-    #                 return result
-    #         return None
-        
-    #     return search_bins(self.root_folder, media_pool_item, path)
+    
 
                 
 

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from DaVinciResolveScript import ( # type: ignore
+    from .typings.DaVinciResolveScript import (
         Project,
         Timeline,
         MediaPool,

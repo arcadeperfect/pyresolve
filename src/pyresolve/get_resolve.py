@@ -5,7 +5,7 @@ This file serves to return a DaVinci Resolve object
 """
 
 import sys
-from _types import Resolve
+from ._types import Resolve
 
 def load_source(module_name, file_path):
     if sys.version_info[0] >= 3 and sys.version_info[1] >= 5:
@@ -17,10 +17,10 @@ def load_source(module_name, file_path):
             module = importlib.util.module_from_spec(spec)
         if module:
             sys.modules[module_name] = module
-            spec.loader.exec_module(module)
+            spec.loader.exec_module(module) # type: ignore
         return module
     else:
-        import imp
+        import imp # type: ignore
         return imp.load_source(module_name, file_path)
 
 
@@ -34,21 +34,21 @@ def GetResolve() -> Resolve:
             expectedPath = "/Library/Application Support/Blackmagic Design/DaVinci Resolve/Developer/Scripting/Modules/"
         elif sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
             import os
-            expectedPath = os.getenv('PROGRAMDATA') + "\\Blackmagic Design\\DaVinci Resolve\\Support\\Developer\\Scripting\\Modules\\"
+            expectedPath = os.getenv('PROGRAMDATA') + "\\Blackmagic Design\\DaVinci Resolve\\Support\\Developer\\Scripting\\Modules\\" # type: ignore
         elif sys.platform.startswith("linux"):
             expectedPath = "/opt/resolve/Developer/Scripting/Modules/"
 
         # check if the default path has it...
         print("Unable to find module DaVinciResolveScript from $PYTHONPATH - trying default locations")
         try:
-            load_source('DaVinciResolveScript', expectedPath + "DaVinciResolveScript.py")
+            load_source('DaVinciResolveScript', expectedPath + "DaVinciResolveScript.py") # type: ignore
             import DaVinciResolveScript as bmd
         except Exception as ex:
             # No fallbacks ... report error:
             print("Unable to find module DaVinciResolveScript - please ensure that the module DaVinciResolveScript is discoverable by python")
-            print("For a default DaVinci Resolve installation, the module is expected to be located in: " + expectedPath)
+            print("For a default DaVinci Resolve installation, the module is expected to be located in: " + expectedPath) # type: ignore
             print(ex)
             sys.exit()
 
-    return bmd.scriptapp("Resolve")
+    return bmd.scriptapp("Resolve") # type: ignore
 

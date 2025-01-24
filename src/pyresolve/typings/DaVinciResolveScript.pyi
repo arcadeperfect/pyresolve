@@ -703,7 +703,9 @@ class MediaPoolItem(PyRemoteObject):
         File name. Not modifiable. Distinct from the display name returned
         by TimelineItem. Not necessarily unique.
 
-        For image sequences takes the form clip_name.[start_frame]-[end_frame].ext
+        
+        For image sequences takes the form clip_name.[start_frame]-[end_frame].ext.
+
         For movies it is just the file name
 
         Returns:
@@ -711,17 +713,32 @@ class MediaPoolItem(PyRemoteObject):
         """
         ...
 
-    def GetThirdPartyMetadata(self, metadataType: Optional[str] = None) -> Union[str, Dict[str, str]]:
-        """Returns the third party metadata value for the key 'metadataType'.
-        If no argument is specified, a dict of all set third party metadata properties is returned.
+    @overload
+    def GetThirdPartyMetadata(self) -> dict[str, str]:
+        """
+        Return the metadata as a dict
         
-        Args:
-            metadataType: Optional metadata type to query
-            
-        Returns:
-            Union[str, Dict[str, str]]: Metadata value or dictionary of all third party metadata
         """
         ...
+    @overload
+    def GetThirdPartyMetadata(self, key) -> str:
+        """
+        Return the metadata by key
+        
+        """
+        ...
+
+    # def GetThirdPartyMetadata(self, metadataType: Optional[str] = None) -> Union[str, Dict[str, str]]:
+    #     """Returns the third party metadata value for the key 'metadataType'.
+    #     If no argument is specified, a dict of all set third party metadata properties is returned.
+        
+    #     Args:
+    #         metadataType: Optional metadata type to query
+            
+    #     Returns:
+    #         Union[str, Dict[str, str]]: Metadata value or dictionary of all third party metadata
+    #     """
+    #     ...
 
     def GetUniqueId(self) -> str:
         """Returns a unique ID for the media pool item.
@@ -1078,7 +1095,7 @@ class Project(PyRemoteObject):
         """
         ...
 
-    def GetGallery(self) -> Gallery:
+    def GetGallery(self) -> Any:
         """Returns the Gallery object.
         
         Returns:
@@ -3246,7 +3263,7 @@ class TimelineItem(PyRemoteObject):
 
     def SetProperty(self, propertyKey: str, propertyValue: Any) -> bool:
         """Sets the value of property.
-        
+
                 | Property         | Type  | Range                      |
         | ---------------- | ----- | ---------------------------|
         | Pan              | float | (-4.0*width to 4.0*width)  |
