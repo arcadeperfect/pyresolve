@@ -141,21 +141,6 @@ class ShotBin:
         bin: Folder,  # reference to the resolve bin
         kernel: "Kernel",  # the Resolve instance wrapper
     ):
-        # if not isinstance(name, str):
-        #     raise TypeError("name must be a string")
-
-        # if not isinstance(path, Path):
-        #     raise TypeError("path must be a Path object")
-
-        # if not isinstance(file_type, FileType):
-        #     raise TypeError("file_type must be a FileType object")
-
-        # # if type(parent) is not BlackmagicFusion.PyRemoteObject:
-        # #     raise TypeError ...
-
-        # if not isinstance(kernel, Kernel):
-        #     raise TypeError("kernel must be a Kernel object")
-
         self.name = shot_name
         self.path = shot_path
         self.file_type = file_type
@@ -266,7 +251,7 @@ class ShotBin:
         return {
             version: clip
             for clip in self.folder.GetClipList()
-            if (version := ShotBin.parse_version_number(clip.GetName()))
+            if (version := ShotBin._parse_version_number(clip.GetName()))
         }
 
     @property
@@ -281,11 +266,10 @@ class ShotBin:
             dict[int, Path]: A dictionary mapping version numbers to file paths.
         """
 
-
         return {
             version: clip_path
             for clip_path in self.list_clip_paths_on_disk()
-            if (version := ShotBin.parse_version_number(clip_path.name))
+            if (version := ShotBin._parse_version_number(clip_path.name))
         }
 
     def deternine_media_type(self, item: MediaPoolItem) -> Optional["MediaType"]:
@@ -300,29 +284,42 @@ class ShotBin:
 
         return media_type.value
 
-
     def version_up(self, timeline_item: TimelineItem, sort_mode: "SortMode"):
-        self._switch_version(timeline_item, sort_mode, lambda current, versions: min((x for x in versions if x > current), default=None))
+        self._switch_version(
+            timeline_item,
+            sort_mode,
+            lambda current, versions: min(
+                (x for x in versions if x > current), default=None
+            ),
+        )
 
     def version_down(self, timeline_item: TimelineItem, sort_mode: "SortMode"):
-        self._switch_version(timeline_item, sort_mode, lambda current, versions: max((x for x in versions if x < current), default=None))
+        self._switch_version(
+            timeline_item,
+            sort_mode,
+            lambda current, versions: max(
+                (x for x in versions if x < current), default=None
+            ),
+        )
 
     def version_latest(self, timeline_item: TimelineItem, sort_mode: "SortMode"):
-        self._switch_version(timeline_item, sort_mode, lambda current, versions: max(versions))
+        self._switch_version(
+            timeline_item, sort_mode, lambda current, versions: max(versions) if max(versions) > current else None
+        )
 
     def version_oldest(self, timeline_item: TimelineItem, sort_mode: "SortMode"):
-        self._switch_version(timeline_item, sort_mode, lambda current, versions: min(versions))
+        self._switch_version(
+            timeline_item, sort_mode, lambda current, versions: min(versions) if min(versions) < current else None
+        )
 
     def _switch_version(
         self, timeline_item: TimelineItem, sort_mode: "SortMode", expression
     ) -> Optional[MediaPoolItem]:
         current_item = timeline_item.GetMediaPoolItem()
 
-        clip_frame_count = int(current_item.GetClipProperty("Frames"))
-
         if sort_mode == SortMode.VERSIONPARSE:
             name = current_item.GetName()
-            current_version_number = ShotBin.parse_version_number(name)
+            current_version_number = ShotBin._parse_version_number(name)
 
             if current_version_number is None:
                 print("failed ot parse version number")
@@ -331,27 +328,42 @@ class ShotBin:
             versions_on_disk = self.versions_on_disk
             versions_in_bin = self.versioned_clips_in_folder
             disk_version_keys = sorted(list(versions_on_disk.keys()))
-            next_version_up = expression(current_version_number, disk_version_keys)
+            next_version = expression(current_version_number, disk_version_keys)
+            print(f"next version: {next_version}")
 
-            if next_version_up is None:
+            if next_version is None:
                 print("found no new versions")
                 return None
 
             new_clip = None
 
-            if next_version_up in versions_in_bin.keys():
+            if next_version in versions_in_bin.keys():
                 print("found in bin, returning that")
-                new_clip = versions_in_bin[next_version_up]
+                new_clip = versions_in_bin[next_version]
 
             else:
                 media_type = self.deternine_media_type(current_item)
 
                 if media_type == MediaType.MOVIE:
-                    new_clip = self._handle_movie_version(expression, current_version_number, current_item)
+                    new_clip = self._handle_movie_version(
+                        expression,
+                        current_version_number,
+                        current_item,
+                        versions_on_disk,
+                        disk_version_keys,
+                        next_version,
+                    )
 
                 # IMAGE SEQUENCE
                 elif media_type == MediaType.SEQUENCE:
-                    new_clip = self._handle_image_sequence_version(expression, current_version_number, current_item)
+                    new_clip = self._handle_image_sequence_version(
+                        expression,
+                        current_version_number,
+                        current_item,
+                        versions_on_disk,
+                        disk_version_keys,
+                        next_version,
+                    )
 
             if new_clip is None:
                 return None
@@ -362,14 +374,21 @@ class ShotBin:
 
         raise NotImplementedError
 
-    def _handle_image_sequence_version(self, expression, current_version_number, current_item):
-
-        versions_on_disk = self.versions_on_disk
-        disk_version_keys = sorted(list(versions_on_disk.keys()))
-        next_version_up = expression(current_version_number, disk_version_keys)
+    def _handle_image_sequence_version(
+        self,
+        expression,
+        current_version_number,
+        current_item,
+        versions_on_disk,
+        disk_version_keys,
+        next_version,
+    ):
+        # versions_on_disk = self.versions_on_disk
+        # disk_version_keys = sorted(list(versions_on_disk.keys()))
+        # next_version = expression(current_version_number, disk_version_keys)
         valid_sequence = None
         while valid_sequence is None:
-            sequence_path = versions_on_disk[next_version_up]
+            sequence_path = versions_on_disk[next_version]
             seqs = FileSequence.find_sequences_in_path(
                 sequence_path
             )  # disover valid image sequences
@@ -377,18 +396,17 @@ class ShotBin:
                 sequence = seqs[
                     0
                 ]  # just going to assume the first one is the one we want (hopefully there is only one valid sequence in the folder)
-                if sequence.frame_count == int(current_item.GetClipProperty("Frames")): #TODO use with frame validation method
+                if sequence.frame_count == int(
+                    current_item.GetClipProperty("Frames")
+                ):  # TODO use with frame validation method
                     valid_sequence = sequence
                     break
                 else:
                     print("frames didn't match")
 
-            next_version_up = min(
-                (x for x in disk_version_keys if x > next_version_up),
-                default=None,
-            )
+            next_version = expression(next_version, disk_version_keys)
 
-            if next_version_up is None:
+            if next_version is None:
                 break
 
         if not valid_sequence:
@@ -403,31 +421,38 @@ class ShotBin:
 
         return new_clip
 
-    def _handle_movie_version(self, expression, current_version_number, current_item):
+    def _handle_movie_version(
+        self,
+        expression,
+        current_version_number,
+        current_item,
+        versions_on_disk,
+        disk_version_keys,
+        next_version,
+    ):
+        print("handling movie version")
 
-        versions_on_disk = self.versions_on_disk
-        disk_version_keys = sorted(list(versions_on_disk.keys()))
-        next_version_up = expression(current_version_number, disk_version_keys)
+        # versions_on_disk = self.versions_on_disk
+        # disk_version_keys = sorted(list(versions_on_disk.keys()))
+        # next_version = expression(current_version_number, disk_version_keys)
+        print(f"next version 1: {next_version}")
         valid_clip = None
         while valid_clip is None:
-            clip_path = versions_on_disk[next_version_up]
+            clip_path = versions_on_disk[next_version]
             if clip_path.is_file():
                 temp_clip = self.kernel.import_movie(clip_path, self.folder)
 
-                if (
-                    self.validate_frame_count(temp_clip, current_item)
-                ):
-                    valid_clip = self.kernel.import_movie(
-                        clip_path, self.folder
-                    )
+                if self._validate_frame_count(temp_clip, current_item):
+                    valid_clip = self.kernel.import_movie(clip_path, self.folder)
                     break
                 else:
                     print("temp clip frame range invalid")
                     self.kernel.remove_clip(temp_clip)
                     valid_clip = None
-            next_version_up = expression(next_version_up, disk_version_keys)
+            next_version = expression(next_version, disk_version_keys)
+            print(f"next version 2: {next_version}")
 
-            if next_version_up is None:
+            if next_version is None:
                 break
 
         if not valid_clip:
@@ -446,24 +471,25 @@ class ShotBin:
         timeline_item.SelectTakeByIndex(2)
         timeline_item.FinalizeTake()
 
-    def validate_frame_count(self, current_clip: MediaPoolItem, clip_candidate: MediaPoolItem) -> bool:
-
+    def _validate_frame_count(
+        self, current_clip: MediaPoolItem, clip_candidate: MediaPoolItem
+    ) -> bool:
         try:
             source = int(current_clip.GetClipProperty("Frames"))
         except Exception as e:
             print(e)
             return False
-        
+
         try:
             target = int(clip_candidate.GetClipProperty("Frames"))
         except Exception as e:
             print(e)
             return False
-        
+
         return source == target
 
     @staticmethod
-    def parse_version_number(name: str) -> Optional[int]:
+    def _parse_version_number(name: str) -> Optional[int]:
         name = name.split(".")[0]
 
         # Match _v123
@@ -487,6 +513,26 @@ class ShotBin:
         print(f"Could not parse version number from {name}")
 
         return None
+
+    @staticmethod
+    def version_up_item(item: TimelineItem, kernel: "Kernel"):
+        shot_bin = ShotBin.from_timeline_item(item, kernel)
+        return shot_bin.version_up(item, SortMode.VERSIONPARSE)
+
+    @staticmethod
+    def version_down_item(item: TimelineItem, kernel: "Kernel"):
+        shot_bin = ShotBin.from_timeline_item(item, kernel)
+        return shot_bin.version_down(item, SortMode.VERSIONPARSE)
+
+    @staticmethod
+    def version_oldest_item(item: TimelineItem, kernel: "Kernel"):
+        shot_bin = ShotBin.from_timeline_item(item, kernel)
+        return shot_bin.version_oldest(item, SortMode.VERSIONPARSE)
+
+    @staticmethod
+    def version_latest_item(item: TimelineItem, kernel: "Kernel"):
+        shot_bin = ShotBin.from_timeline_item(item, kernel)
+        return shot_bin.version_latest(item, SortMode.VERSIONPARSE)
 
 
 class Kernel:
@@ -638,6 +684,17 @@ class Kernel:
         return [clip.GetName() for clip in folder.GetClipList()]
 
 
+    def get_existing_track_indices(self) -> list[int]:
+        timeline = self.current_timeline
+        if timeline is None:
+            return []
+        tracks = timeline.GetTrackCount("video")
+        if tracks is None:
+            return []
+        return list(range(1, tracks + 1))
+
+
+
 def find_folder_path(
     root: Folder, media_pool_item: MediaPoolItem
 ) -> Tuple[Folder, list[int], int]:
@@ -763,11 +820,73 @@ def find_clip_bin(item: MediaPoolItem, kernel: Kernel) -> Folder:
     )  # There should be no scenario where we can't find it
 
 
-def version_up_item(item: TimelineItem, kernel: Kernel):
-    shot_bin = ShotBin.from_timeline_item(item, kernel)
-    return shot_bin.version_up(item, SortMode.VERSIONPARSE)
 
 
-def version_down_item(item: TimelineItem, kernel: Kernel):
-    shot_bin = ShotBin.from_timeline_item(item, kernel)
-    return shot_bin.version_down(item, SortMode.VERSIONPARSE)
+def version_up_track(track_index: int, kernel: Kernel):
+    timeline = kernel.current_timeline
+    if timeline is None:
+        return
+    videoItems = timeline.GetItemListInTrack("video", track_index)
+    if videoItems is None:
+        return
+    for item in videoItems:
+        ShotBin.version_up_item(item, kernel)
+
+def version_down_track(track_index: int, kernel: Kernel):
+    timeline = kernel.current_timeline
+    if timeline is None:
+        return
+    videoItems = timeline.GetItemListInTrack("video", track_index)
+    if videoItems is None:
+        return
+    for item in videoItems:
+        ShotBin.version_down_item(item, kernel)
+
+def version_latest_track(track_index: int, kernel: Kernel):
+    timeline = kernel.current_timeline
+    if timeline is None:
+        return
+    videoItems = timeline.GetItemListInTrack("video", track_index)
+    if videoItems is None:
+        return
+    for item in videoItems:
+        ShotBin.version_latest_item(item, kernel)
+
+def version_oldest_track(track_index: int, kernel: Kernel):
+    timeline = kernel.current_timeline
+    if timeline is None:  
+        return
+    videoItems = timeline.GetItemListInTrack("video", track_index)
+    if videoItems is None:
+        return
+    for item in videoItems: 
+        ShotBin.version_oldest_item(item, kernel)
+
+
+def version_up_tracks(track_indices: list[int], kernel: Kernel):
+    existing_tracks = kernel.get_existing_track_indices()
+    for track_index in track_indices:
+        if track_index not in existing_tracks:
+            continue
+        version_up_track(track_index, kernel)
+
+def version_down_tracks(track_indices: list[int], kernel: Kernel):
+    existing_tracks = kernel.get_existing_track_indices()
+    for track_index in track_indices:
+        if track_index not in existing_tracks:
+            continue
+        version_down_track(track_index, kernel)
+
+def version_latest_tracks(track_indices: list[int], kernel: Kernel):
+    existing_tracks = kernel.get_existing_track_indices()
+    for track_index in track_indices:
+        if track_index not in existing_tracks:
+            continue
+        version_latest_track(track_index, kernel)
+
+def version_oldest_tracks(track_indices: list[int], kernel: Kernel):
+    existing_tracks = kernel.get_existing_track_indices()
+    for track_index in track_indices:
+        if track_index not in existing_tracks:
+            continue
+        version_oldest_track(track_index, kernel)

@@ -56,10 +56,13 @@ def version_up():
 
     current_item = kernel.active_timeline_item
 
+    if current_item is None:
+        return
+
     shot_bin = ShotBin.from_timeline_item(current_item, kernel)
     shot_bin.version_up(current_item, SortMode.VERSIONPARSE)
 
-    pass
+
 
 
 def version_down():
@@ -68,7 +71,38 @@ def version_down():
 
     current_item = kernel.active_timeline_item
 
+    if current_item is None:
+        return
+    
     shot_bin = ShotBin.from_timeline_item(current_item, kernel)
     shot_bin.version_down(current_item, SortMode.VERSIONPARSE)
 
+
+
+def latest_version():
+    resolve = GetResolve()
+    kernel = Kernel(resolve)
+    current_item = kernel.active_timeline_item
+
+    if current_item is None:
+        return
+    shot_bin = ShotBin.from_timeline_item(current_item, kernel)
+    shot_bin.version_latest(current_item, SortMode.VERSIONPARSE)
+
     pass
+
+
+def oldest_version():
+    resolve = GetResolve()
+    kernel = Kernel(resolve)
+    current_item = kernel.active_timeline_item
+
+    if current_item is None:
+        return
+    shot_bin = ShotBin.from_timeline_item(current_item, kernel)
+    shot_bin.version_oldest(current_item, SortMode.VERSIONPARSE)
+
+
+    pass
+
+
