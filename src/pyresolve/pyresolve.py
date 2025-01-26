@@ -446,7 +446,7 @@ class ShotBin:
         timeline_item.SelectTakeByIndex(2)
         timeline_item.FinalizeTake()
 
-        def validate_frame_count(self, current_clip: MediaPoolItem, clip_candidate: MediaPoolItem) -> bool:
+    def validate_frame_count(self, current_clip: MediaPoolItem, clip_candidate: MediaPoolItem) -> bool:
 
         try:
             source = int(current_clip.GetClipProperty("Frames"))
