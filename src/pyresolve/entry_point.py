@@ -1,6 +1,9 @@
 from .pyresolve import Kernel, ShotBin, SequenceBin, SortMode
 from .get_resolve import GetResolve
 
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+
 # """
 # Instructions to use this library from within Resolve:
 
@@ -32,6 +35,18 @@ from .get_resolve import GetResolve
 # >>> sys.path.append("C:\\Users\\alexh\\src\\pyresolve_hornet\\src")
 
 # """
+# print(mpi.SetClipProperty("Clip Name", "hello"))
+def message():
+    resolve = GetResolve()
+    kernel = Kernel(resolve)
+
+    root = tk.Tk()
+    root.withdraw()
+
+    user_input = simpledialog.askstring("Message", "Enter message")
+
+    mpi = kernel.active_timeline_item.GetMediaPoolItem()
+    mpi.SetClipProperty("Clip Name", user_input)
 
 
 def version_up():
