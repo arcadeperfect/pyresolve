@@ -25,11 +25,14 @@ import os
 
 # from initialize import find_clip_bin
 import logging
-logging.getLogger("pysequitur").setLevel(logging.WARNING) 
+
+logging.getLogger("pysequitur").setLevel(logging.WARNING)
+
 
 class MediaType(Enum):
     MOVIE = auto()
     SEQUENCE = auto()
+
 
 # @unique
 # class FileType(Enum):
@@ -38,6 +41,16 @@ class MediaType(Enum):
 #     PNG = MediaType.SEQUENCE
 #     MOV = MediaType.MOVIE
 #     MP4 = MediaType.MOVIE
+
+#     @property
+#     def extension(self):
+#         return self.name.lower()
+
+#     @property
+#     def media_type(self):
+#         return self.value
+
+
 @unique
 class FileType(Enum):
     DPX = (MediaType.SEQUENCE, "dpx")
@@ -45,6 +58,15 @@ class FileType(Enum):
     PNG = (MediaType.SEQUENCE, "png")
     MOV = (MediaType.MOVIE, "mov")
     MP4 = (MediaType.MOVIE, "mp4")
+
+    @property
+    def extension(self):
+        return self.name.lower()
+
+    @property
+    def media_type(self):
+        return self.value[0]
+
 
 class SortMode(Enum):
     VERSIONPARSE = auto()
@@ -87,7 +109,7 @@ class SequenceBin:
         self.path = sequence_root_path
         self.sub_path = sub_path
         self.file_type = file_type
-        self.media_type = self.file_type.value[0]
+        self.media_type = self.file_type.media_type
         # self.media_type = self.file_type.value
         self.kernel = kernel
         self.parent = parent_bin
@@ -197,7 +219,7 @@ class ShotBin:
         self.path = shot_path
         self.file_type = file_type
         # self.media_type = self.file_type.value
-        self.media_type = self.file_type.value[0]
+        self.media_type = self.file_type.media_type
         self.folder = bin
         self.kernel = kernel
         pass
@@ -209,13 +231,17 @@ class ShotBin:
         shot_path = Path(item.GetClipProperty("File Path"))  # type: ignore
         file_type = FileType[(shot_path.suffix.upper().lstrip("."))]
 
-        if file_type.value == MediaType.SEQUENCE:
+        print(f"vvvv {file_type.media_type}")
+
+        if file_type.media_type == MediaType.SEQUENCE:
             shot_path = shot_path.parent
 
         bin = find_clip_bin(item, kernel)
 
         if bin is None:
             raise ValueError("Could not find parent bin")
+
+        print(shot_path)
 
         return cls(item.GetName(), shot_path.parent, file_type, bin, kernel)
 
@@ -239,9 +265,9 @@ class ShotBin:
                 continue
 
             if self.media_type == MediaType.MOVIE:
+                # TODO handle case where movie doesn't have same name as folder
+
                 self.kernel.import_movie(clip_path, self.folder)
-
-
 
             if self.media_type == MediaType.SEQUENCE:
                 """
@@ -259,11 +285,8 @@ class ShotBin:
                 """
                 clip_name = clip_path.name
                 found_sequences = FileSequence.match_components_in_path(
-                    Components(
-                        prefix = clip_name,
-                        extension = self.file_type.name.lower()
-                    ),
-                    clip_path.parent
+                    Components(prefix=clip_name, extension=self.file_type.name.lower()),
+                    clip_path.parent,
                 )
 
                 """
@@ -272,7 +295,7 @@ class ShotBin:
                 TODO use some more intelligent logic, or import all the valid sequences?
                 """
 
-                if len(found_sequences) == 0: #no valid sequences
+                if len(found_sequences) == 0:  # no valid sequences
                     valid_sequences = FileSequence.find_sequences_in_path(clip_path)
                     if len(valid_sequences) != 0:
                         clip_name = valid_sequences[0].prefix
@@ -280,14 +303,11 @@ class ShotBin:
                         continue
 
                 self.kernel.import_sequence(
-                    clip_path, # the path to the sequence
-                    clip_name,        
-                    self.file_type.name.lower(), 
-                    self.folder
+                    clip_path,  # the path to the sequence
+                    clip_name,
+                    self.file_type.name.lower(),
+                    self.folder,
                 )
-            
-
-            
 
     @property
     def newest_clip_in_bin(self) -> Optional[MediaPoolItem]:
@@ -338,6 +358,7 @@ class ShotBin:
         if self.media_type == MediaType.MOVIE:
             return [p for p in self.path.iterdir() if p.is_file()]
         if self.media_type == MediaType.SEQUENCE:
+            # print(self.path)
             return [p for p in self.path.iterdir() if p.is_dir()]
 
         raise ValueError(f"Invalid media type: {self.media_type}")
@@ -371,6 +392,7 @@ class ShotBin:
         Returns:
             dict[int, Path]: A dictionary mapping version numbers to file paths.
         """
+        # print(self.list_clip_paths_on_disk())
 
         return {
             version: clip_path
@@ -383,12 +405,14 @@ class ShotBin:
         extension = os.path.splitext(item.GetClipProperty("File Name"))[-1]
         extension = extension.lstrip(".").upper()
 
-        media_type = FileType.__dict__.get(extension)
+        ft  = FileType.__dict__.get(extension)
 
-        if media_type is None:
+        if ft is None:
             return None
 
-        return media_type.value
+        mt = ft.media_type
+
+        return mt
 
     def version_up(self, timeline_item: TimelineItem, sort_mode: "SortMode"):
         self._switch_version(
@@ -427,11 +451,12 @@ class ShotBin:
         )
 
     def _switch_version(
-        self, timeline_item: TimelineItem, sort_mode: "SortMode", expression
+        self,
+        timeline_item: TimelineItem,
+        sort_mode: "SortMode",  # can be version parsing, or timestamp
+        expression,  # lambda that determines the logic for deciding which version to switch to
     ) -> Optional[MediaPoolItem]:
         current_item = timeline_item.GetMediaPoolItem()
-
-    
 
         if sort_mode == SortMode.VERSIONPARSE:
             name = current_item.GetName()
@@ -444,21 +469,30 @@ class ShotBin:
             versions_on_disk = self.versions_on_disk
             versions_in_bin = self.versioned_clips_in_folder
             disk_version_keys = sorted(list(versions_on_disk.keys()))
+            
+            
             next_version = expression(current_version_number, disk_version_keys)
-            print(f"next version: {next_version}")
+
+            expected_frame_count = int(
+                    current_item.GetClipProperty("Frames")
+                )
 
             if next_version is None:
-                print("found no new versions")
                 return None
 
             new_clip = None
 
-            if next_version in versions_in_bin.keys():
-                print("found in bin, returning that")
-                new_clip = versions_in_bin[next_version]
+            # if next_version in versions_in_bin.keys():
+            #     print("found in bin, returning that")
+            #     new_clip = versions_in_bin[next_version]
+
+            if False:
+                pass
 
             else:
                 media_type = self.deternine_media_type(current_item)
+                print(media_type)
+                print("a")
 
                 if media_type == MediaType.MOVIE:
                     new_clip = self._handle_movie_version(
@@ -468,10 +502,12 @@ class ShotBin:
                         versions_on_disk,
                         disk_version_keys,
                         next_version,
+                        expected_frame_count
                     )
 
                 # IMAGE SEQUENCE
                 elif media_type == MediaType.SEQUENCE:
+                    print("b")
                     new_clip = self._handle_image_sequence_version(
                         expression,
                         current_version_number,
@@ -479,7 +515,11 @@ class ShotBin:
                         versions_on_disk,
                         disk_version_keys,
                         next_version,
+                        expected_frame_count
                     )
+                else:
+                    raise NotImplementedError(
+                        f"Unsupported media type: {media_type}")
 
             if new_clip is None:
                 return None
@@ -498,6 +538,7 @@ class ShotBin:
         versions_on_disk,
         disk_version_keys,
         next_version,
+        expected_frame_count
     ):
         # versions_on_disk = self.versions_on_disk
         # disk_version_keys = sorted(list(versions_on_disk.keys()))
@@ -509,12 +550,11 @@ class ShotBin:
                 sequence_path
             )  # disover valid image sequences
             if seqs:
-                sequence = seqs[
-                    0
-                ]  # just going to assume the first one is the one we want (hopefully there is only one valid sequence in the folder)
-                if sequence.frame_count == int(
-                    current_item.GetClipProperty("Frames")
-                ):  # TODO use with frame validation method
+                sequence = seqs[0]  # just going to assume the first one is the one we want (hopefully there is only one valid sequence in the folder)
+                
+                print(f"{sequence.frame_count} == {expected_frame_count}")
+
+                if sequence.frame_count == expected_frame_count:  # TODO use with frame validation method
                     valid_sequence = sequence
                     break
                 else:
@@ -528,12 +568,17 @@ class ShotBin:
         if not valid_sequence:
             return None
 
+
+
         new_clip = self.kernel.import_sequence(
             valid_sequence.directory,
             valid_sequence.prefix,
             valid_sequence.extension,
             self.folder,
-        )
+        )[0]
+
+
+        print(f"returning new clip to {new_clip}")
 
         return new_clip
 
@@ -545,6 +590,7 @@ class ShotBin:
         versions_on_disk,
         disk_version_keys,
         next_version,
+        expected_frame_count
     ):
         print("handling movie version")
 
@@ -558,7 +604,7 @@ class ShotBin:
             if clip_path.is_file():
                 temp_clip = self.kernel.import_movie(clip_path, self.folder)
 
-                if self._validate_frame_count(temp_clip, current_item):
+                if self._validate_frame_count(int(temp_clip.GetClipProperty("Frames")), expected_frame_count):
                     valid_clip = self.kernel.import_movie(clip_path, self.folder)
                     break
                 else:
@@ -578,14 +624,12 @@ class ShotBin:
         # new_clip = valid_clip
 
     def _swap_clip(self, timeline_item: TimelineItem, new_clip: MediaPoolItem):
-        
         tl = self.kernel.current_timeline
         if tl is not None:
             playhead = tl.GetCurrentTimecode()
         else:
             playhead = None
-        
-        
+
         timeline_item.AddTake(
             new_clip,
             timeline_item.GetSourceStartFrame(),
@@ -599,21 +643,11 @@ class ShotBin:
             tl.SetCurrentTimecode(playhead)
 
     def _validate_frame_count(
-        self, current_clip: MediaPoolItem, clip_candidate: MediaPoolItem
+        self, expected, candidate
     ) -> bool:
-        try:
-            source = int(current_clip.GetClipProperty("Frames"))
-        except Exception as e:
-            print(e)
-            return False
+       
 
-        try:
-            target = int(clip_candidate.GetClipProperty("Frames"))
-        except Exception as e:
-            print(e)
-            return False
-
-        return source == target
+        return expected == candidate
 
     @staticmethod
     def _parse_version_number(name: str) -> Optional[int]:
@@ -798,7 +832,7 @@ class Kernel:
         p = str(dir / name) + f".%0{seq.padding}d.{ext}"
         # print(p)
         # print(name)
- 
+
         l = self.media_pool.ImportMedia(
             [
                 {

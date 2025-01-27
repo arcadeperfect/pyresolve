@@ -33,6 +33,13 @@ tli = kernel.active_timeline_item
 mpi = kernel.active_media_pool_item
 
 
+# f = FileType.EXR
+
+# print(f)
+
+
+version_up()
+# version_down()
 
 # # my test project
 # root = Path(r"P:\projects\ayon\rnd_alexh\Sequences\resolve")
@@ -59,22 +66,22 @@ mpi = kernel.active_media_pool_item
 
 
 
-# current kroger playblasts
-root = Path("P:\\directors\\cesar_pelizer\\krog91_omniP13\\production\\maya\\playblast\\shots")
-sub_path= Path("ANM")
+# # current kroger playblasts
+# root = Path("P:\\directors\\cesar_pelizer\\krog91_omniP13\\production\\maya\\playblast\\shots")
+# sub_path= Path("ANM")
 
-sb = SequenceBin(
-    name="playblasts",
-    sequence_root_path=root,
-    sub_path=sub_path,
-    file_type=FileType.MOV,
-    parent_bin=kernel.root_folder,
-    kernel=kernel,
-)
+# sb = SequenceBin(
+#     name="playblasts",
+#     sequence_root_path=root,
+#     sub_path=sub_path,
+#     file_type=FileType.MOV,
+#     parent_bin=kernel.root_folder,
+#     kernel=kernel,
+# )
 
-sb.create_folder()
-sb.create_shot_bins()
-sb.populate_shot_bins(4)
+# sb.create_folder()
+# sb.create_shot_bins()
+# sb.populate_shot_bins(4)
 # sb.assemble_timeline(track=1, handle=0)
 
 
@@ -103,6 +110,6 @@ sb.populate_shot_bins(4)
 # seq_bin.create_folder()
 # seq_bin.create_shot_bins()
 # seq_bin.populate_shot_bins(-1)
-# # seq_bin.assemble_timeline(track=1, handle=0)
+# seq_bin.assemble_timeline(track=1, handle=0)
 
 

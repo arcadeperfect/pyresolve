@@ -207,6 +207,7 @@ def version_down():
     current_item = kernel.active_timeline_item
 
     if current_item is None:
+        print("no active timeline item")
         return
 
     shot_bin = ShotBin.from_timeline_item(current_item, kernel)
