@@ -116,17 +116,79 @@ class MediaPool(PyRemoteObject):
         """
         ...
 
-    def AppendToTimeline(self, *clips: Union[MediaPoolItem, List[MediaPoolItem], List[Dict]]) -> List["TimelineItem"]:
-        """Appends specified MediaPoolItem objects in the current timeline.
+    # def AppendToTimeline(self, *clips: Union[MediaPoolItem, List[MediaPoolItem], List[Dict]]) -> List["TimelineItem"]:
+    #     """Appends specified MediaPoolItem objects in the current timeline.
         
-        Can be called with:
-        - Individual MediaPoolItems: clip1, clip2, ...
-        - List of MediaPoolItems: [clips]
-        - List of clipInfo dicts: [{"mediaPoolItem": item, "startFrame": float/int, 
-          "endFrame": float/int, "mediaType": int, "trackIndex": int, "recordFrame": float/int}]
+    #     Can be called with:
+    #     - Individual MediaPoolItems: clip1, clip2, ...
+    #     - List of MediaPoolItems: [clips]
+    #     - List of clipInfo dicts: [{"mediaPoolItem": item, "startFrame": float/int, 
+    #       "endFrame": float/int, "mediaType": int, "trackIndex": int, "recordFrame": float/int}]
         
+    #     Returns:
+    #         List[TimelineItem]: List of appended TimelineItems
+    #     """
+    #     ...
+
+    @overload
+    def AppendToTimeline(self, *clips: MediaPoolItem) -> List["TimelineItem"]:
+        """
+        Appends individual media pool items to the current timeline.
+
+        Args:
+            *clips: Variable number of MediaPoolItem objects to append
+
         Returns:
-            List[TimelineItem]: List of appended TimelineItems
+            List[TimelineItem]: List of appended timeline items
+
+        Example:
+            timeline.AppendToTimeline(clip1, clip2, clip3)
+        """
+        ...
+
+    @overload 
+    def AppendToTimeline(self, clips: List[MediaPoolItem]) -> List["TimelineItem"]:
+        """
+        Appends a list of media pool items to the current timeline.
+
+        Args:
+            clips: List of MediaPoolItem objects to append
+
+        Returns:
+            List[TimelineItem]: List of appended timeline items
+
+        Example:
+            timeline.AppendToTimeline([clip1, clip2, clip3])
+        """
+        ...
+
+    @overload
+    def AppendToTimeline(self, clips: List[Dict[str, Any]]) -> List["TimelineItem"]:
+        """
+        Appends clips to timeline using clip info dictionaries.
+
+        Args:
+            clips: List of dictionaries containing clip information
+
+        Returns:
+            List[TimelineItem]: List of appended timeline items
+
+        | Key          | Type          | Required | Description                             |
+        | ------------ | ------------- | -------- | --------------------------------------- |
+        | mediaPoolItem| MediaPoolItem | Yes      | Media pool item to append              |
+        | startFrame   | int/float     | Yes      | Start frame of the clip                |
+        | endFrame     | int/float     | Yes      | End frame of the clip                  |
+        | mediaType    | int           | No       | 1 for video only, 2 for audio only     |
+        | trackIndex   | int           | No       | Index of track to append to            |
+        | recordFrame  | int/float     | No       | Frame position to insert clip          |
+
+        Example:
+            timeline.AppendToTimeline([{
+                "mediaPoolItem": clip1,
+                "startFrame": 0,
+                "endFrame": 100,
+                "mediaType": 1
+            }])
         """
         ...
 
@@ -2322,17 +2384,46 @@ class Timeline(PyRemoteObject):
         """
         ...
 
-    def ImportIntoTimeline(self, filePath: str, importOptions: Optional[dict] = None) -> bool:
-        """Imports timeline items from file.
+    # def ImportIntoTimeline(self, filePath: str, importOptions: Optional[dict] = None) -> bool:
+    #     """Imports timeline items from file.
+
+    #     Args:
+    #         filePath (str): Path to import file
+    #         importOptions (Optional[dict], optional): Dictionary of import options. Defaults to None.
+
+            
+
+
+
+    #     Returns:
+    #         bool: True if successful
+    #     """
+    #     ...
+
+    def ImportIntoTimeline(self, filePath: str, importOptions: dict = None) -> bool:
+        """
+        Imports timeline items from an AAF file with optional import options.
 
         Args:
             filePath (str): Path to import file
             importOptions (Optional[dict], optional): Dictionary of import options. Defaults to None.
 
-        Returns:
-            bool: True if successful
+        | Option                                        | Type    | Default       | Description                                                                                                           |
+        | --------------------------------------------- | ------- | ------------- | --------------------------------------------------------------------------------------------------------------------- |
+        | autoImportSourceClipsIntoMediaPool            | bool    | True          | Specifies if source clips should be imported into media pool                                                          |
+        | ignoreFileExtensionsWhenMatching              | bool    | False         | Specifies if file extensions should be ignored when matching                                                          |
+        | linkToSourceCameraFiles                       | bool    | False         | Specifies if link to source camera files should be enabled                                                            |
+        | useSizingInfo                                 | bool    | False         | Specifies if sizing information should be used                                                                        |
+        | importMultiChannelAudioTracksAsLinkedGroups   | bool    | False         | Specifies if multi-channel audio tracks should be imported as linked groups                                           |
+        | insertAdditionalTracks                        | bool    | True          | Specifies if additional tracks should be inserted                                                                     |
+        | insertWithOffset                              | str     | "00:00:00:00" | Specifies insert with offset value in timecode format, applicable if insertAdditionalTracks is False           |
+        | sourceClipsPath                               | str     | None          | Filesystem path to search for source clips if media is inaccessible in original path                                  |
+        | sourceClipsFolders                            | list    | None          | List of Media Pool folder objects to search for source clips if media is not in current folder                        |
+
+         Returns:
+             bool: True if successful
+
         """
-        ...
 
     def InsertFusionCompositionIntoTimeline(self) -> TimelineItem:
         """Inserts a Fusion composition into the timeline.

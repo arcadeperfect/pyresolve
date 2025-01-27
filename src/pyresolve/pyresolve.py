@@ -1,7 +1,7 @@
 import json
 import re
 
-from enum import Enum, auto
+from enum import Enum, auto, unique
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -24,20 +24,27 @@ from ._types import (
 import os
 
 # from initialize import find_clip_bin
-
+import logging
+logging.getLogger("pysequitur").setLevel(logging.WARNING) 
 
 class MediaType(Enum):
     MOVIE = auto()
     SEQUENCE = auto()
 
-
+# @unique
+# class FileType(Enum):
+#     DPX = MediaType.SEQUENCE
+#     EXR = MediaType.SEQUENCE
+#     PNG = MediaType.SEQUENCE
+#     MOV = MediaType.MOVIE
+#     MP4 = MediaType.MOVIE
+@unique
 class FileType(Enum):
-    DPX = MediaType.SEQUENCE
-    EXR = MediaType.SEQUENCE
-    PNG = MediaType.SEQUENCE
-    MOV = MediaType.MOVIE
-    MP4 = MediaType.MOVIE
-
+    DPX = (MediaType.SEQUENCE, "dpx")
+    EXR = (MediaType.SEQUENCE, "exr")
+    PNG = (MediaType.SEQUENCE, "png")
+    MOV = (MediaType.MOVIE, "mov")
+    MP4 = (MediaType.MOVIE, "mp4")
 
 class SortMode(Enum):
     VERSIONPARSE = auto()
@@ -80,7 +87,8 @@ class SequenceBin:
         self.path = sequence_root_path
         self.sub_path = sub_path
         self.file_type = file_type
-        self.media_type = self.file_type.value
+        self.media_type = self.file_type.value[0]
+        # self.media_type = self.file_type.value
         self.kernel = kernel
         self.parent = parent_bin
         self._resolve_folder = None
@@ -89,6 +97,8 @@ class SequenceBin:
     @property
     def shot_paths(self) -> list[Path]:
         """A list of filesystem paths that correspond to shots in this sequence"""
+
+        # print([p for p in (self.path).iterdir() if p.is_dir()])
         return [p for p in (self.path).iterdir() if p.is_dir()]
 
     @property
@@ -110,11 +120,24 @@ class SequenceBin:
     def create_shot_bins(self) -> dict[str, "ShotBin"]:
         """Utility to batch create bins for all discovered shots"""
         bins = {}
+        existing_bins = [bin.GetName() for bin in self.resolve_bin.GetSubFolderList()]
         for shot_path in self.shot_paths:
             shot_name = shot_path.name
             media_path = Path(shot_path) / self.sub_path
+
+            if shot_name in existing_bins:
+                print(f"Bin {shot_name} already exists")
+                for bin in self.resolve_bin.GetSubFolderList():
+                    if bin.GetName() == shot_name:
+                        bins[shot_name] = ShotBin(
+                            shot_name, media_path, self.file_type, bin, self.kernel
+                        )
+                        print(f"acquired existing bin {shot_name}")
+                        continue
+
             if not media_path.is_dir():
                 continue
+
             resolve_folder = self.kernel.add_bin(shot_name, self.resolve_bin)
             bins[shot_name] = ShotBin(
                 shot_name, media_path, self.file_type, resolve_folder, self.kernel
@@ -131,6 +154,35 @@ class SequenceBin:
         for bin in self.shot_bins.values():
             bin.populate_bin(depth)
 
+    def assemble_timeline(self, track: int = 1, handle: int = 0) -> Optional[Timeline]:
+        """Assembles a timeline from the shot bins"""
+
+        print("Assembling timeline")
+
+        active_timeline = self.kernel.current_timeline
+
+        if active_timeline is None:
+            print("No active timeline")
+            return None
+
+        print(self.shot_bins.values())
+
+        clipz = []
+
+        for shot_bin in self.shot_bins.values():
+            latest = shot_bin.newest_clip_in_bin
+            if latest is None:
+                continue
+            # print(self.kernel.media_pool.AppendToTimeline(latest))
+
+            # self.kernel.append_clip_to_timeline(latest, active_timeline, handle, track)
+
+            clipz.append(latest)
+
+        self.kernel.append_clips_to_timeline(clipz, active_timeline, handle, track)
+
+        return active_timeline
+
 
 class ShotBin:
     def __init__(
@@ -144,7 +196,8 @@ class ShotBin:
         self.name = shot_name
         self.path = shot_path
         self.file_type = file_type
-        self.media_type = self.file_type.value
+        # self.media_type = self.file_type.value
+        self.media_type = self.file_type.value[0]
         self.folder = bin
         self.kernel = kernel
         pass
@@ -171,6 +224,7 @@ class ShotBin:
         return cls.from_media_pool_item(item.GetMediaPoolItem(), kernel)
 
     def populate_bin(self, depth: int):
+        print("Populating bin")
         folder_contents = self.list_clip_names_in_bin()
 
         clip_filesystem_paths = (
@@ -187,16 +241,58 @@ class ShotBin:
             if self.media_type == MediaType.MOVIE:
                 self.kernel.import_movie(clip_path, self.folder)
 
+
+
             if self.media_type == MediaType.SEQUENCE:
-                self.kernel.import_sequence(
-                    clip_path, clip_path.name, self.file_type.name.lower(), self.folder
+                """
+                the directory of the sequence should have the same name as the sequence, 
+                however this is not necessarily enforced so I check for sequences with 
+                the name derived from the path
+
+                correct example:
+                /path/to/renders/render_v001/render_v001.####.exr
+
+                incorrect example:
+                /path/to/renders/v001/render_v001.####.exr
+
+                in the incorrect case, we will search first for a sequence by the name of v001.####.exr
+                """
+                clip_name = clip_path.name
+                found_sequences = FileSequence.match_components_in_path(
+                    Components(
+                        prefix = clip_name,
+                        extension = self.file_type.name.lower()
+                    ),
+                    clip_path.parent
                 )
+
+                """
+                if no sequences are found, as a fall back we search for valid sequences
+                in the path and use the first one
+                TODO use some more intelligent logic, or import all the valid sequences?
+                """
+
+                if len(found_sequences) == 0: #no valid sequences
+                    valid_sequences = FileSequence.find_sequences_in_path(clip_path)
+                    if len(valid_sequences) != 0:
+                        clip_name = valid_sequences[0].prefix
+                    else:
+                        continue
+
+                self.kernel.import_sequence(
+                    clip_path, # the path to the sequence
+                    clip_name,        
+                    self.file_type.name.lower(), 
+                    self.folder
+                )
+            
+
+            
 
     @property
     def newest_clip_in_bin(self) -> Optional[MediaPoolItem]:
         """
         Return the newest clip in the bin, currently just sorting by name
-        TODO: sort by version or date
         """
         clip_list = self.list_clips_in_bin()
         if len(clip_list) == 0:
@@ -204,6 +300,16 @@ class ShotBin:
 
         if len(clip_list) == 0:
             return None
+
+        for clip in clip_list:
+            ShotBin._parse_version_number(clip.GetName())
+
+        lambda x: ShotBin._parse_version_number(x.GetName())
+
+        clip_list = sorted(
+            clip_list, key=lambda x: ShotBin._parse_version_number(x.GetName()) or 0
+        )  # sort by version
+
         return clip_list[-1]
 
     @property
@@ -304,18 +410,28 @@ class ShotBin:
 
     def version_latest(self, timeline_item: TimelineItem, sort_mode: "SortMode"):
         self._switch_version(
-            timeline_item, sort_mode, lambda current, versions: max(versions) if max(versions) > current else None
+            timeline_item,
+            sort_mode,
+            lambda current, versions: max(versions)
+            if max(versions) > current
+            else None,
         )
 
     def version_oldest(self, timeline_item: TimelineItem, sort_mode: "SortMode"):
         self._switch_version(
-            timeline_item, sort_mode, lambda current, versions: min(versions) if min(versions) < current else None
+            timeline_item,
+            sort_mode,
+            lambda current, versions: min(versions)
+            if min(versions) < current
+            else None,
         )
 
     def _switch_version(
         self, timeline_item: TimelineItem, sort_mode: "SortMode", expression
     ) -> Optional[MediaPoolItem]:
         current_item = timeline_item.GetMediaPoolItem()
+
+    
 
         if sort_mode == SortMode.VERSIONPARSE:
             name = current_item.GetName()
@@ -462,6 +578,14 @@ class ShotBin:
         # new_clip = valid_clip
 
     def _swap_clip(self, timeline_item: TimelineItem, new_clip: MediaPoolItem):
+        
+        tl = self.kernel.current_timeline
+        if tl is not None:
+            playhead = tl.GetCurrentTimecode()
+        else:
+            playhead = None
+        
+        
         timeline_item.AddTake(
             new_clip,
             timeline_item.GetSourceStartFrame(),
@@ -470,6 +594,9 @@ class ShotBin:
 
         timeline_item.SelectTakeByIndex(2)
         timeline_item.FinalizeTake()
+
+        if playhead and tl:
+            tl.SetCurrentTimecode(playhead)
 
     def _validate_frame_count(
         self, current_clip: MediaPoolItem, clip_candidate: MediaPoolItem
@@ -666,8 +793,13 @@ class Kernel:
             return None
 
         seq = seqs[0]
-        print(f"Importing {seq.sequence_string} from {dir}")
-        return self.media_pool.ImportMedia(
+        # print(f"Importing {seq.sequence_string} from {dir}")
+
+        p = str(dir / name) + f".%0{seq.padding}d.{ext}"
+        # print(p)
+        # print(name)
+ 
+        l = self.media_pool.ImportMedia(
             [
                 {
                     "FilePath": str(dir / name) + f".%0{seq.padding}d.{ext}",
@@ -675,14 +807,14 @@ class Kernel:
                     "EndIndex": seq.last_frame,
                 }
             ]
-        )[0]
+        )
+        return l
 
     def remove_clip(self, clip: MediaPoolItem):
         self.media_pool.DeleteClips([clip])
 
     def list_clip_names_in_folder(self, folder: Folder) -> list[str]:
         return [clip.GetName() for clip in folder.GetClipList()]
-
 
     def get_existing_track_indices(self) -> list[int]:
         timeline = self.current_timeline
@@ -693,6 +825,103 @@ class Kernel:
             return []
         return list(range(1, tracks + 1))
 
+    def append_clip_to_timeline(
+        self,
+        clip: MediaPoolItem,
+        timeline: Timeline,
+        handle: int = 0,
+        track_index: Optional[int] = None,
+    ):
+        self.project.SetCurrentTimeline(timeline)
+
+        if timeline is None:
+            return
+
+        a = int(clip.GetClipProperty("Start"))
+        b = int(clip.GetClipProperty("End"))
+        start = a + handle
+        end = b - handle
+        start = min(start, b - 1)
+        end = max(start + 1, end)
+
+        print(start, end)
+
+        print(timeline.GetStartFrame())
+
+        # print(timeline.Fr())
+
+        if track_index:
+            print(f"track index: {track_index}")
+            self.media_pool.AppendToTimeline(
+                [
+                    {
+                        "mediaPoolItem": clip,
+                        "startFrame": start,  # 5 frames before clip start
+                        "endFrame": end,  # 5 frames after clip end
+                        "trackIndex": 1,
+                    }
+                ]
+            )
+
+        else:
+            self.media_pool.AppendToTimeline(
+                [
+                    {
+                        "mediaPoolItem": clip,
+                        "startFrame": start,  # 5 frames before clip start
+                        "endFrame": end,  # 5 frames after clip end
+                    }
+                ]
+            )
+
+    def append_clips_to_timeline(
+        self,
+        clips: list[MediaPoolItem],
+        timeline: Timeline,
+        handle: int = 0,
+        track_index: Optional[int] = None,
+    ):
+        self.project.SetCurrentTimeline(timeline)
+
+        if timeline is None:
+            return
+
+        append_dict_list = []
+
+        for clip in clips:
+            a = int(clip.GetClipProperty("Start"))
+            b = int(clip.GetClipProperty("End"))
+            start = a + handle
+            end = b - handle
+            start = min(start, b - 1)
+            end = max(start + 1, end)
+
+            print(start, end)
+
+            print(timeline.GetStartFrame())
+
+            # print(timeline.Fr())
+
+            if track_index:
+                append_dict_list.append(
+                    {
+                        "mediaPoolItem": clip,
+                        "startFrame": start,  # 5 frames before clip start
+                        "endFrame": end,  # 5 frames after clip end
+                        "trackIndex": track_index,
+                    }
+                )
+
+            else:
+                append_dict_list.append(
+                    {
+                        "mediaPoolItem": clip,
+                        "startFrame": start,  # 5 frames before clip start
+                        "endFrame": end,  # 5 frames after clip end
+                    }
+                )
+
+        self.media_pool.AppendToTimeline(append_dict_list)
 
 
 def find_folder_path(
@@ -820,8 +1049,6 @@ def find_clip_bin(item: MediaPoolItem, kernel: Kernel) -> Folder:
     )  # There should be no scenario where we can't find it
 
 
-
-
 def version_up_track(track_index: int, kernel: Kernel):
     timeline = kernel.current_timeline
     if timeline is None:
@@ -831,6 +1058,7 @@ def version_up_track(track_index: int, kernel: Kernel):
         return
     for item in videoItems:
         ShotBin.version_up_item(item, kernel)
+
 
 def version_down_track(track_index: int, kernel: Kernel):
     timeline = kernel.current_timeline
@@ -842,6 +1070,7 @@ def version_down_track(track_index: int, kernel: Kernel):
     for item in videoItems:
         ShotBin.version_down_item(item, kernel)
 
+
 def version_latest_track(track_index: int, kernel: Kernel):
     timeline = kernel.current_timeline
     if timeline is None:
@@ -852,14 +1081,15 @@ def version_latest_track(track_index: int, kernel: Kernel):
     for item in videoItems:
         ShotBin.version_latest_item(item, kernel)
 
+
 def version_oldest_track(track_index: int, kernel: Kernel):
     timeline = kernel.current_timeline
-    if timeline is None:  
+    if timeline is None:
         return
     videoItems = timeline.GetItemListInTrack("video", track_index)
     if videoItems is None:
         return
-    for item in videoItems: 
+    for item in videoItems:
         ShotBin.version_oldest_item(item, kernel)
 
 
@@ -870,6 +1100,7 @@ def version_up_tracks(track_indices: list[int], kernel: Kernel):
             continue
         version_up_track(track_index, kernel)
 
+
 def version_down_tracks(track_indices: list[int], kernel: Kernel):
     existing_tracks = kernel.get_existing_track_indices()
     for track_index in track_indices:
@@ -877,12 +1108,14 @@ def version_down_tracks(track_indices: list[int], kernel: Kernel):
             continue
         version_down_track(track_index, kernel)
 
+
 def version_latest_tracks(track_indices: list[int], kernel: Kernel):
     existing_tracks = kernel.get_existing_track_indices()
     for track_index in track_indices:
         if track_index not in existing_tracks:
             continue
         version_latest_track(track_index, kernel)
+
 
 def version_oldest_tracks(track_indices: list[int], kernel: Kernel):
     existing_tracks = kernel.get_existing_track_indices()
