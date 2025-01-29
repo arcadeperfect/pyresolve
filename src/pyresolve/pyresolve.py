@@ -405,7 +405,7 @@ class ShotBin:
         extension = os.path.splitext(item.GetClipProperty("File Name"))[-1]
         extension = extension.lstrip(".").upper()
 
-        ft  = FileType.__dict__.get(extension)
+        ft = FileType.__dict__.get(extension)
 
         if ft is None:
             return None
@@ -469,25 +469,25 @@ class ShotBin:
             versions_on_disk = self.versions_on_disk
             versions_in_bin = self.versioned_clips_in_folder
             disk_version_keys = sorted(list(versions_on_disk.keys()))
-            
-            
+
             next_version = expression(current_version_number, disk_version_keys)
 
-            expected_frame_count = int(
-                    current_item.GetClipProperty("Frames")
-                )
+            expected_frame_count = int(current_item.GetClipProperty("Frames"))
 
             if next_version is None:
                 return None
 
             new_clip = None
 
-            # if next_version in versions_in_bin.keys():
-            #     print("found in bin, returning that")
-            #     new_clip = versions_in_bin[next_version]
+            print(f"next version: {next_version}")
+            print(f"versions in bin: {versions_in_bin.keys()}")
 
-            if False:
-                pass
+            if next_version in versions_in_bin.keys():
+                print("found in bin, returning that")
+                new_clip = versions_in_bin[next_version]
+
+            # if False:
+            #     pass
 
             else:
                 media_type = self.deternine_media_type(current_item)
@@ -502,7 +502,7 @@ class ShotBin:
                         versions_on_disk,
                         disk_version_keys,
                         next_version,
-                        expected_frame_count
+                        expected_frame_count,
                     )
 
                 # IMAGE SEQUENCE
@@ -515,11 +515,10 @@ class ShotBin:
                         versions_on_disk,
                         disk_version_keys,
                         next_version,
-                        expected_frame_count
+                        expected_frame_count,
                     )
                 else:
-                    raise NotImplementedError(
-                        f"Unsupported media type: {media_type}")
+                    raise NotImplementedError(f"Unsupported media type: {media_type}")
 
             if new_clip is None:
                 return None
@@ -538,27 +537,39 @@ class ShotBin:
         versions_on_disk,
         disk_version_keys,
         next_version,
-        expected_frame_count
+        expected_frame_count,
     ):
+        print("c")
         # versions_on_disk = self.versions_on_disk
         # disk_version_keys = sorted(list(versions_on_disk.keys()))
         # next_version = expression(current_version_number, disk_version_keys)
         valid_sequence = None
+
+        sequence_path = versions_on_disk[next_version]
+        seqs = FileSequence.find_sequences_in_path(
+            sequence_path
+        )  # disover valid image sequences
+
         while valid_sequence is None:
-            sequence_path = versions_on_disk[next_version]
-            seqs = FileSequence.find_sequences_in_path(
-                sequence_path
-            )  # disover valid image sequences
+            # sequence_path = versions_on_disk[next_version]
+            # seqs = FileSequence.find_sequences_in_path(
+            #     sequence_path
+            # )  # disover valid image sequences
             if seqs:
-                sequence = seqs[0]  # just going to assume the first one is the one we want (hopefully there is only one valid sequence in the folder)
-                
+                sequence = seqs[
+                    0
+                ]  # just going to assume the first one is the one we want (hopefully there is only one valid sequence in the folder)
+
                 print(f"{sequence.frame_count} == {expected_frame_count}")
 
-                if sequence.frame_count == expected_frame_count:  # TODO use with frame validation method
-                    valid_sequence = sequence
-                    break
-                else:
-                    print("frames didn't match")
+                valid_sequence = sequence
+                break
+
+                # if sequence.frame_count == expected_frame_count:  # TODO use with frame validation method
+                #     valid_sequence = sequence
+                #     break
+                # else:
+                #     print("frames didn't match")
 
             next_version = expression(next_version, disk_version_keys)
 
@@ -568,7 +579,7 @@ class ShotBin:
         if not valid_sequence:
             return None
 
-
+        print("d")
 
         new_clip = self.kernel.import_sequence(
             valid_sequence.directory,
@@ -576,7 +587,6 @@ class ShotBin:
             valid_sequence.extension,
             self.folder,
         )[0]
-
 
         print(f"returning new clip to {new_clip}")
 
@@ -590,7 +600,7 @@ class ShotBin:
         versions_on_disk,
         disk_version_keys,
         next_version,
-        expected_frame_count
+        expected_frame_count,
     ):
         print("handling movie version")
 
@@ -604,12 +614,14 @@ class ShotBin:
             if clip_path.is_file():
                 temp_clip = self.kernel.import_movie(clip_path, self.folder)
 
-                if self._validate_frame_count(int(temp_clip.GetClipProperty("Frames")), expected_frame_count):
+                if self._validate_frame_count(
+                    int(temp_clip.GetClipProperty("Frames")), expected_frame_count
+                ):
                     valid_clip = self.kernel.import_movie(clip_path, self.folder)
                     break
                 else:
                     print("temp clip frame range invalid")
-                    self.kernel.remove_clip(temp_clip)
+                    self.kernel.remove_clip_from_media_pool(temp_clip)
                     valid_clip = None
             next_version = expression(next_version, disk_version_keys)
             print(f"next version 2: {next_version}")
@@ -624,11 +636,49 @@ class ShotBin:
         # new_clip = valid_clip
 
     def _swap_clip(self, timeline_item: TimelineItem, new_clip: MediaPoolItem):
-        tl = self.kernel.current_timeline
-        if tl is not None:
-            playhead = tl.GetCurrentTimecode()
+        timeline = self.kernel.current_timeline
+
+        if timeline is None:
+            return
+
+        if timeline is not None:
+            playhead = timeline.GetCurrentTimecode()
         else:
             playhead = None
+
+        # TODO handle frame range mismatch
+
+        (start, end), (in_, out) = get_timeline_item_frame_info(timeline_item)
+
+        first, last, duration = get_media_pool_item_frame_info(new_clip)
+
+        track_index = int(timeline_item.GetTrackTypeAndIndex()[1])
+
+        if duration == 1:
+
+            print(f"duration: {duration}")
+            print(f"start: {start}")
+            print(f"end: {end}")
+            print(f"first: {first}")
+            print(f"last: {last}")
+            print(f"in: {in_}")
+            print(f"out: {out}")
+            print(f"track index: {track_index}")
+
+            self.kernel.remove_clip_from_timeline(timeline_item)
+            result = self.kernel.append_clip_to_timeline_in_out(
+                new_clip,
+                timeline,
+                first, #clip in
+                last,  #clip out
+                start,   #track in
+                end,   #track out
+                track_index
+            )
+
+            print(result)
+
+            return
 
         timeline_item.AddTake(
             new_clip,
@@ -639,14 +689,10 @@ class ShotBin:
         timeline_item.SelectTakeByIndex(2)
         timeline_item.FinalizeTake()
 
-        if playhead and tl:
-            tl.SetCurrentTimecode(playhead)
+        if playhead and timeline:
+            timeline.SetCurrentTimecode(playhead)
 
-    def _validate_frame_count(
-        self, expected, candidate
-    ) -> bool:
-       
-
+    def _validate_frame_count(self, expected, candidate) -> bool:
         return expected == candidate
 
     @staticmethod
@@ -844,8 +890,14 @@ class Kernel:
         )
         return l
 
-    def remove_clip(self, clip: MediaPoolItem):
+    def remove_clip_from_media_pool(self, clip: MediaPoolItem):
         self.media_pool.DeleteClips([clip])
+
+    def remove_clip_from_timeline(self, clip: TimelineItem):
+        if self.current_timeline is None:
+            return
+
+        self.current_timeline.DeleteClips([clip], False)
 
     def list_clip_names_in_folder(self, folder: Folder) -> list[str]:
         return [clip.GetName() for clip in folder.GetClipList()]
@@ -859,7 +911,71 @@ class Kernel:
             return []
         return list(range(1, tracks + 1))
 
-    def append_clip_to_timeline(
+    # def append_clip_to_timeline(
+    #     self,
+    #     clip: MediaPoolItem,
+    #     timeline: Timeline,
+    #     clip_in: int,
+    #     clip_out: int,
+    #     track_in: int,
+    #     track_out: int,
+    #     track_index: int,
+    # ):
+    #     self.project.SetCurrentTimeline(timeline)
+    #     clipInfo = {
+            
+    #         "mediaPoolItem": clip,
+    #     }
+    def append_clip_to_timeline_in_out(
+        self,
+        clip: MediaPoolItem,
+        timeline: Timeline,
+        clip_in: int,
+        clip_out: int,
+        track_in: int,
+        track_out: int,
+        track_index: int,
+    ):
+        self.project.SetCurrentTimeline(timeline)
+        
+        print(f"Clip in: {clip_in}")
+        print(f"Clip out: {clip_out}")
+        print(f"Track in: {track_in}")
+        print(f"Track out: {track_out}")
+
+
+        # Calculate source and target durations
+        source_duration = clip_out - clip_in + 1
+        target_duration = track_out - track_in + 1
+        
+        clipInfo = {
+            "mediaPoolItem": clip,
+            # "startFrame": 533,
+            # "endFrame": 533,
+            "recordFrame": track_in,
+            "trackIndex": track_index,
+            # "mediaType": 1
+        }
+        
+        # Get the media pool and append the clip
+        mediaPool = self.project.GetMediaPool()
+        timeline_items = mediaPool.AppendToTimeline([clipInfo])
+        
+        if timeline_items:
+            timeline_item = timeline_items[0]
+            print(f"Timeline item: {timeline_item}")
+            # Calculate speed adjustment needed
+            speed_factor = source_duration / target_duration
+            print(f"Speed factor: {speed_factor}")
+            # Set retiming properties
+            # timeline_item.SetProperty("RetimeProcess", self.resolve.)
+            print(timeline_item.SetProperty("Speed", speed_factor))
+            
+            return timeline_items
+        
+        return None
+
+    def append_clip_to_timeline_with_handles(
         self,
         clip: MediaPoolItem,
         timeline: Timeline,
@@ -1157,3 +1273,45 @@ def version_oldest_tracks(track_indices: list[int], kernel: Kernel):
         if track_index not in existing_tracks:
             continue
         version_oldest_track(track_index, kernel)
+
+
+def get_timeline_item_frame_info(
+    timeline_item: TimelineItem,
+) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+    """
+    Returns a tuple of two tuples of two integers each. The first tuple is
+    (start_frame, end_frame) of the timeline item in the timeline, and the
+    second tuple is (start_frame, end_frame) of the media pool item source
+    clip in the timeline item.
+
+    Args:
+        timeline_item (TimelineItem): The timeline item to get frame info for
+
+    Returns:
+        Tuple[Tuple[int, int], Tuple[int, int]]:
+        First tuple is start and end frame of timeline
+        Second tuple is in and out frame of source clip
+    """
+    timeline_start_frame = int(timeline_item.GetStart())
+    timeline_end_frame = int(timeline_item.GetEnd())
+    source_start_frame = timeline_item.GetSourceStartFrame()
+    source_end_frame = timeline_item.GetSourceEndFrame()
+
+    return (
+        (timeline_start_frame, timeline_end_frame),
+        (source_start_frame, source_end_frame),
+    )
+
+
+def get_media_pool_item_frame_info(
+    m: MediaPoolItem,
+) -> Tuple[
+    int,  # first_frame_on_disk
+    int,  # last_frame_on_disk
+    int,  # duration
+]:
+    duration = m.GetClipProperty("frames")
+    first_frame_on_disk = m.GetClipProperty("Start")
+    last_frame_on_disk = m.GetClipProperty("End")
+
+    return int(first_frame_on_disk), int(last_frame_on_disk), int(duration)

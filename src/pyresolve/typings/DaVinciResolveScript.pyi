@@ -615,8 +615,8 @@ class MediaPoolItem(PyRemoteObject):
         """
         Properties dictionary. Available keys:
 
-        | Property                   | Type  |
-        | -------------------------- | ----- |
+        | Property                   | Type  | Description
+        | -------------------------- | ----- | -------------
         | Alpha mode                 | str   |
         | Angle                      | str   |
         | Audio Bit Depth            | str   |
@@ -637,7 +637,7 @@ class MediaPoolItem(PyRemoteObject):
         | Drop frame                 | str   |
         | Duration                   | str   |
         | Enable Deinterlacing       | str   |
-        | End                        | str   |
+        | End                        | str   | The frame number of the last frame on disk
         | End TC                     | str   |
         | FPS                        | float |
         | Field Dominance            | str   |
@@ -670,7 +670,7 @@ class MediaPoolItem(PyRemoteObject):
         | Sharpness                  | str   |
         | Shot                       | str   |
         | Slate TC                   | str   |
-        | Start                      | str   |
+        | Start                      | str   |   The frame number of the first frame on disk
         | Start KeyKode              | str   |
         | Start TC                   | str   |
         | SuperScale Noise Reduction | str   |
@@ -3355,7 +3355,7 @@ class TimelineItem(PyRemoteObject):
     def SetProperty(self, propertyKey: str, propertyValue: Any) -> bool:
         """Sets the value of property.
 
-                | Property         | Type  | Range                      |
+        | Property         | Type  | Range                      |
         | ---------------- | ----- | ---------------------------|
         | Pan              | float | (-4.0*width to 4.0*width)  |
         | Tilt             | float | (-4.0*height to 4.0*height)|

@@ -14,18 +14,27 @@ from .pyresolve import (
     version_down_tracks,
     version_latest_tracks,
     version_oldest_tracks,
-    
+    get_media_pool_item_frame_info,
+    get_timeline_item_frame_info
 )
 from .get_resolve import GetResolve
+
 # from .entry_point import *
-from .entry_point import generate_bins, version_up, version_down, generate_bins_and_assemble, version_oldest_tracks
+from .entry_point import (
+    generate_bins,
+    version_up,
+    version_down,
+    oldest_version,
+    generate_bins_and_assemble,
+    version_oldest_tracks,
+)
 
 from pathlib import Path
 
 resolve = GetResolve()
 kernel = Kernel(resolve)
 
-i = kernel.active_timeline_item
+# i = kernel.active_timeline_item
 
 
 tli = kernel.active_timeline_item
@@ -33,14 +42,12 @@ tli = kernel.active_timeline_item
 mpi = kernel.active_media_pool_item
 
 
-# f = FileType.EXR
-
-# print(f)
+print(tli.SetProperty())
 
 
-version_up()
+# version_up()
 # version_down()
-
+# oldest_version()
 # # my test project
 # root = Path(r"P:\projects\ayon\rnd_alexh\Sequences\resolve")
 # sub_path= Path(r"publish\render\rendercomp_Main")
@@ -63,9 +70,6 @@ version_up()
 # # sb.assemble_timeline(track=1, handle=0)
 
 
-
-
-
 # # current kroger playblasts
 # root = Path("P:\\directors\\cesar_pelizer\\krog91_omniP13\\production\\maya\\playblast\\shots")
 # sub_path= Path("ANM")
@@ -83,12 +87,6 @@ version_up()
 # sb.create_shot_bins()
 # sb.populate_shot_bins(4)
 # sb.assemble_timeline(track=1, handle=0)
-
-
-
-
-
-
 
 
 # # current kroger renders
@@ -111,5 +109,3 @@ version_up()
 # seq_bin.create_shot_bins()
 # seq_bin.populate_shot_bins(-1)
 # seq_bin.assemble_timeline(track=1, handle=0)
-
-
