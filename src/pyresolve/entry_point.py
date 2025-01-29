@@ -14,6 +14,8 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 
+SORTMODE = SortMode.TIMESTAMP
+
 # """
 # Instructions to use this library from within Resolve:
 
@@ -197,7 +199,8 @@ def version_up():
         return
 
     shot_bin = ShotBin.from_timeline_item(current_item, kernel)
-    shot_bin.version_up(current_item, SortMode.VERSIONPARSE)
+    # shot_bin.version_up(current_item, SortMode.VERSIONPARSE)
+    shot_bin.version_up(current_item, SORTMODE)
 
 
 def version_down():
@@ -211,7 +214,8 @@ def version_down():
         return
 
     shot_bin = ShotBin.from_timeline_item(current_item, kernel)
-    shot_bin.version_down(current_item, SortMode.VERSIONPARSE)
+    # shot_bin.version_down(current_item, SortMode.VERSIONPARSE)
+    shot_bin.version_down(current_item, SORTMODE)
 
 
 def latest_version():
@@ -222,7 +226,8 @@ def latest_version():
     if current_item is None:
         return
     shot_bin = ShotBin.from_timeline_item(current_item, kernel)
-    shot_bin.version_latest(current_item, SortMode.VERSIONPARSE)
+    # shot_bin.version_latest(current_item, SortMode.VERSIONPARSE)
+    shot_bin.version_latest(current_item, SORTMODE)
 
     pass
 
@@ -235,7 +240,8 @@ def oldest_version():
     if current_item is None:
         return
     shot_bin = ShotBin.from_timeline_item(current_item, kernel)
-    shot_bin.version_oldest(current_item, SortMode.VERSIONPARSE)
+    # shot_bin.version_oldest(current_item, SortMode.VERSIONPARSE)
+    shot_bin.version_oldest(current_item, SORTMODE)
 
     pass
 

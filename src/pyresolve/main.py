@@ -25,6 +25,7 @@ from .entry_point import (
     version_up,
     version_down,
     oldest_version,
+    latest_version,
     generate_bins_and_assemble,
     version_oldest_tracks,
 )
@@ -42,11 +43,14 @@ tli = kernel.active_timeline_item
 mpi = kernel.active_media_pool_item
 
 
-print(tli.SetProperty())
+# print(tli.SetProperty())
 
+# oldest_version()
+latest_version()
 
 # version_up()
 # version_down()
+
 # oldest_version()
 # # my test project
 # root = Path(r"P:\projects\ayon\rnd_alexh\Sequences\resolve")

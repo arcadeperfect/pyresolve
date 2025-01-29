@@ -1,5 +1,6 @@
 import json
 import re
+import platform
 
 from enum import Enum, auto, unique
 from pathlib import Path
@@ -231,7 +232,7 @@ class ShotBin:
         shot_path = Path(item.GetClipProperty("File Path"))  # type: ignore
         file_type = FileType[(shot_path.suffix.upper().lstrip("."))]
 
-        print(f"vvvv {file_type.media_type}")
+        # print(f"vvvv {file_type.media_type}")
 
         if file_type.media_type == MediaType.SEQUENCE:
             shot_path = shot_path.parent
@@ -241,7 +242,7 @@ class ShotBin:
         if bin is None:
             raise ValueError("Could not find parent bin")
 
-        print(shot_path)
+        # print(shot_path)
 
         return cls(item.GetName(), shot_path.parent, file_type, bin, kernel)
 
@@ -433,6 +434,7 @@ class ShotBin:
         )
 
     def version_latest(self, timeline_item: TimelineItem, sort_mode: "SortMode"):
+        print("version to latest")
         self._switch_version(
             timeline_item,
             sort_mode,
@@ -450,6 +452,38 @@ class ShotBin:
             else None,
         )
 
+
+    def get_clip_timestamp(self, media_pool_item: MediaPoolItem):
+
+        if not platform.system() == "Windows":
+            raise NotImplementedError("Only Windows is currently supported.")
+
+        if self.media_type == MediaType.MOVIE:
+            p = Path(media_pool_item.GetClipProperty("File Path"))
+            if p.exists():
+                try:
+                    t = p.stat().st_mtime
+                    return t
+                except Exception as e:
+                    print(e)
+            
+
+        if self.media_type == MediaType.SEQUENCE:
+            p = Path(media_pool_item.GetClipProperty("File Path")).parent
+            # print(p)
+            if p.exists():
+                try:
+                    t = p.stat().st_mtime
+                    return t
+                except Exception as e:
+                    print(e)
+            return None
+
+        raise ValueError(f"Invalid media type: {self.media_type}")
+
+        
+
+
     def _switch_version(
         self,
         timeline_item: TimelineItem,
@@ -458,7 +492,77 @@ class ShotBin:
     ) -> Optional[MediaPoolItem]:
         current_item = timeline_item.GetMediaPoolItem()
 
-        if sort_mode == SortMode.VERSIONPARSE:
+        print(sort_mode)
+
+
+        # TODO this can be more dry
+        # do ther vresion parsing according to sort mode
+        # the rest of the logic should apply to either
+
+        if sort_mode == SortMode.TIMESTAMP:
+
+            current_time = self.get_clip_timestamp(current_item)
+            # return None
+            
+            if current_time is None:
+                print("Failed to get timestamp for current item")
+                return None
+                        
+            versions_on_disk = {}
+            for path in self.list_clip_paths_on_disk():
+                if self.media_type == MediaType.MOVIE and path.is_file():
+                    if t := path.stat().st_mtime:
+                        versions_on_disk[t] = path
+                elif self.media_type == MediaType.SEQUENCE and path.is_dir():
+                    if t := path.stat().st_mtime:
+                        versions_on_disk[t] = path
+            
+            versions_in_bin = {}
+            for clip in self.folder.GetClipList():
+                if t := self.get_clip_timestamp(clip):
+                    versions_in_bin[t] = clip
+
+            disk_version_keys = sorted(list(versions_on_disk.keys()))
+            next_version = expression(current_time, disk_version_keys)
+            expected_frame_count = int(current_item.GetClipProperty("Frames"))
+
+            if next_version is None:
+                return None
+
+            new_clip = None
+
+            if next_version in versions_in_bin.keys():
+                print("found in bin, returning that")
+                new_clip = versions_in_bin[next_version]
+            else:
+                media_type = self.deternine_media_type(current_item)
+                print(media_type)
+                if media_type == MediaType.MOVIE:
+                    new_clip = self._handle_movie_version(
+                        expression,
+                        current_time,
+                        current_item,
+                        versions_on_disk,
+                        disk_version_keys,
+                        next_version,
+                        expected_frame_count,
+                    )
+                elif media_type == MediaType.SEQUENCE:
+                    new_clip = self._handle_image_sequence_version(
+                        expression,
+                        current_time,
+                        current_item,
+                        versions_on_disk,
+                        disk_version_keys,
+                        next_version,
+                        expected_frame_count,
+                    )
+                else:
+                    raise NotImplementedError(f"Unsupported media type: {media_type}")
+
+            # return None
+
+        elif sort_mode == SortMode.VERSIONPARSE:
             name = current_item.GetName()
             current_version_number = ShotBin._parse_version_number(name)
 
@@ -479,15 +583,11 @@ class ShotBin:
 
             new_clip = None
 
-            print(f"next version: {next_version}")
-            print(f"versions in bin: {versions_in_bin.keys()}")
 
             if next_version in versions_in_bin.keys():
                 print("found in bin, returning that")
                 new_clip = versions_in_bin[next_version]
 
-            # if False:
-            #     pass
 
             else:
                 media_type = self.deternine_media_type(current_item)
@@ -520,14 +620,18 @@ class ShotBin:
                 else:
                     raise NotImplementedError(f"Unsupported media type: {media_type}")
 
-            if new_clip is None:
-                return None
+        else:
+            raise NotImplementedError
 
-            self._swap_clip(timeline_item, new_clip)
 
-            return new_clip
+        if new_clip is None:
+            return None
 
-        raise NotImplementedError
+        self._swap_clip(timeline_item, new_clip)
+
+        return new_clip
+
+        
 
     def _handle_image_sequence_version(
         self,
@@ -546,6 +650,7 @@ class ShotBin:
         valid_sequence = None
 
         sequence_path = versions_on_disk[next_version]
+        print(sequence_path)
         seqs = FileSequence.find_sequences_in_path(
             sequence_path
         )  # disover valid image sequences
@@ -563,8 +668,8 @@ class ShotBin:
                 print(f"{sequence.frame_count} == {expected_frame_count}")
 
                 valid_sequence = sequence
-                break
 
+                break
                 # if sequence.frame_count == expected_frame_count:  # TODO use with frame validation method
                 #     valid_sequence = sequence
                 #     break
