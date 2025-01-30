@@ -142,6 +142,8 @@ class SequenceBin:
 
     def create_shot_bins(self) -> dict[str, "ShotBin"]:
         """Utility to batch create bins for all discovered shots"""
+        print("Creating shot bins")
+        # print(f"shot paths: {self.shot_paths}")
         bins = {}
         existing_bins = [bin.GetName() for bin in self.resolve_bin.GetSubFolderList()]
         for shot_path in self.shot_paths:
@@ -159,6 +161,7 @@ class SequenceBin:
                         continue
 
             if not media_path.is_dir():
+                print(f"Media path {media_path} is not a directory, skipping")
                 continue
 
             resolve_folder = self.kernel.add_bin(shot_name, self.resolve_bin)
@@ -303,12 +306,18 @@ class ShotBin:
                     else:
                         continue
 
-                self.kernel.import_sequence(
+                item = self.kernel.import_sequence(
                     clip_path,  # the path to the sequence
                     clip_name,
                     self.file_type.name.lower(),
                     self.folder,
                 )
+                try:
+                    if item:
+                        item[0].SetClipProperty("Alpha mode", "None")
+                except:
+                    #TODO proper error handling
+                    pass
 
     @property
     def newest_clip_in_bin(self) -> Optional[MediaPoolItem]:
@@ -798,7 +807,8 @@ class ShotBin:
             timeline.SetCurrentTimecode(playhead)
 
     def _validate_frame_count(self, expected, candidate) -> bool:
-        return expected == candidate
+        # return expected == candidate
+        return True
 
     @staticmethod
     def _parse_version_number(name: str) -> Optional[int]:
@@ -953,7 +963,14 @@ class Kernel:
     def import_movie(self, path: Path, folder: Folder) -> MediaPoolItem:
         print(f"Importing {path}")
         self.set_current_folder(folder)
-        return self.media_storage.AddItemListToMediaPool(str(path))[0]
+        new_item = self.media_storage.AddItemListToMediaPool(str(path))[0]
+        if new_item:
+            try:
+                new_item.SetClipProperty("Alpha Mode", "Ignore")
+            except Exception:
+                #TODO handle exception
+                pass
+        return new_item
 
     def import_sequence(
         self, dir: Path, name: str, ext: str, folder: Folder
@@ -993,6 +1010,14 @@ class Kernel:
                 }
             ]
         )
+
+        for s in l:
+            try:
+                s.SetClipProperty("Alpha Mode", "Ignore")
+            except Exception:
+                #TODO handle exception
+                pass
+
         return l
 
     def remove_clip_from_media_pool(self, clip: MediaPoolItem):

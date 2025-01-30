@@ -21,11 +21,12 @@ from .get_resolve import GetResolve
 
 # from .entry_point import *
 from .entry_point import (
-    generate_bins,
+    generate_bins_and_assemble,
     version_up,
     version_down,
     oldest_version,
     latest_version,
+    generate_bins,
     generate_bins_and_assemble,
     version_oldest_tracks,
 )
@@ -45,11 +46,18 @@ mpi = kernel.active_media_pool_item
 
 # print(tli.SetProperty())
 
+# print(mpi.GetClipProperty("Alpha Mode"))
+
+# print(mpi.SetClipProperty("Alpha Mode", "None"))
+
+# generate_bins()
+# generate_bins_and_assemble()
+
 # oldest_version()
-latest_version()
+# latest_version()
 
 # version_up()
-# version_down()
+version_down()
 
 # oldest_version()
 # # my test project
