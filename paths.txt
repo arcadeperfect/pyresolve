@@ -12,6 +12,10 @@ dpx
 
 
 
+
+
+
+
 krog81s01_coreHoliday
 
 P:\directors\cesar_pelizer\krog81s01_coreHoliday\production\maya\playblast\shots\
@@ -21,3 +25,31 @@ mov
 P:\directors\cesar_pelizer\krog81s01_coreHoliday\production\nuke\shots
 renders
 dpx
+
+
+
+
+
+
+
+
+usps holiday ride
+
+V:\projects\usps\usps07_holidayRide\sequences\holidayRide
+publish\render\renderCompMain
+dpx
+
+
+
+
+
+dev job
+
+P:/projects/ayon/rnd_alexh/Sequences/resolve/
+work/anim/playblasts
+mov
+
+P:/projects/ayon/rnd_alexh/Sequences/resolve/
+publish/render/rendercomp_Main
+exr
+

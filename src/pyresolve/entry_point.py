@@ -7,7 +7,7 @@ from .pyresolve import (
     version_down_tracks as _version_down_tracks,
     version_latest_tracks,
     version_oldest_tracks,
-    FileType
+    FileType,
 )
 from .get_resolve import GetResolve
 from pathlib import Path
@@ -27,10 +27,8 @@ def generate_bins():
     path = Path(_clean_slashes(path))
     subpath = Path(_clean_slashes(subpath))
 
-
     if any(x is None for x in (name, path, subpath, file_type)):
         return
-
 
     if file_type.lower() == "mov":
         ft = FileType.MOV
@@ -41,11 +39,10 @@ def generate_bins():
     elif file_type.lower() == "exr":
         ft = FileType.EXR
 
-
     # try:
     #     f = str(file_type).upper()
     #     ft = FileType[f]
-    
+
     # except KeyError:
     #     print("Invalid file type")
     #     return
@@ -65,24 +62,29 @@ def generate_bins():
     sb.create_shot_bins()
     sb.populate_shot_bins(1)
 
+
 def generate_bins_and_assemble():
     resolve = GetResolve()
     kernel = Kernel(resolve)
 
     if kernel.current_timeline is None:
-        #TODO add error popup
+        # TODO add error popup
         return
-    
 
-    name, path, subpath, file_type = _get_path_and_subPath()
+    name, path, subpath, file_type, depth = _get_path_and_subPath()
+
+    if depth is None:
+        depth = 1
+    else:
+        depth = int(depth)
+
+    print(depth)
 
     path = Path(_clean_slashes(path))
     subpath = Path(_clean_slashes(subpath))
 
-
     if any(x is None for x in (name, path, subpath, file_type)):
         return
-
 
     if file_type.lower() == "mov":
         ft = FileType.MOV
@@ -92,8 +94,6 @@ def generate_bins_and_assemble():
 
     elif file_type.lower() == "exr":
         ft = FileType.EXR
-
-
 
     print(ft)
 
@@ -108,8 +108,9 @@ def generate_bins_and_assemble():
 
     sb.create_folder()
     sb.create_shot_bins()
-    sb.populate_shot_bins(1)
+    sb.populate_shot_bins(depth)
     sb.assemble_timeline(track=1, handle=0)
+
 
 def latest_versions_on_tracks():
     resolve = GetResolve()
@@ -153,6 +154,7 @@ def version_down_tracks():
     selection = _get_checkbox_values(existing_tracks)
 
     _version_down_tracks(selection, kernel)
+
 
 def version_up():
     resolve = GetResolve()
@@ -212,9 +214,7 @@ def oldest_version():
 
 
 def _get_checkbox_values(numbers):
-
-
-    #TODO invert order of checkboxes
+    # TODO invert order of checkboxes
 
     selections = []
     window = tk.Tk()
@@ -245,6 +245,7 @@ def _get_checkbox_values(numbers):
 
     return output
 
+
 def _get_path_and_subPath():
     window = tk.Tk()
     window.attributes("-topmost", True)
@@ -252,7 +253,7 @@ def _get_path_and_subPath():
     message = tk.Label(window, text="Enter path information:")
     message.pack()
 
-    #TODO use file browsers instead of string field
+    # TODO use file browsers instead of string field
 
     # Create frame for name entry
     name_frame = tk.Frame(window)
@@ -286,18 +287,34 @@ def _get_path_and_subPath():
     filetype_entry = tk.Entry(fileType_frame, textvariable=filetype_var)
     filetype_entry.pack(side=tk.LEFT, padx=5)
 
+    # Create frame for depth type entry
+    depth_frame = tk.Frame(window)
+    depth_frame.pack(pady=5)
+    tk.Label(depth_frame, text="Import depth:").pack(side=tk.LEFT)
+    depth_var = tk.StringVar()
+    depth_entry = tk.Entry(depth_frame, textvariable=depth_var)
+    depth_entry.pack(side=tk.LEFT, padx=5)
+
     results = []
 
     def on_submit():
         # Fixed: removed duplicate subpath_var.get()
-        results.extend([name_var.get(), path_var.get(), subpath_var.get(), filetype_var.get()])
+        results.extend(
+            [
+                name_var.get(),
+                path_var.get(),
+                subpath_var.get(),
+                filetype_var.get(),
+                depth_var.get(),
+            ]
+        )
         window.destroy()
 
     tk.Button(window, text="Submit", command=on_submit).pack(pady=10)
     window.mainloop()
 
     # Fixed: return None * 4 instead of None * 2 to match the number of values
-    return results if results else [None] * 4
+    return results if results else [None] * 5
 
 
 def _clean_slashes(path_str):

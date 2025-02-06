@@ -31,7 +31,7 @@ if not exist "%INSTALLER_DIR%" (
 
 :: Create PyResolve directory if it doesn't exist
 if not exist "%PYRESOLVE_DIR%" (
-    mkdir "%PYRESOLVE_DIR%"
+    mkdir "%PYRESOLVE_DIR%" 2>nul
     if errorlevel 1 (
         echo ERROR: Failed to create directory: %PYRESOLVE_DIR%
         echo Make sure you have administrator rights to create folders in ProgramData.
@@ -39,14 +39,15 @@ if not exist "%PYRESOLVE_DIR%" (
     )
 )
 
-:: Copy all Python scripts from the scripts folder
-echo Copying scripts...
-xcopy /y /q "%INSTALLER_DIR%\*.py" "%PYRESOLVE_DIR%\"
-if errorlevel 1 (
-    echo ERROR: Failed to copy scripts.
-    echo Make sure you have administrator rights to create files in ProgramData.
-    goto :error
-)
+@REM :: Copy all Python scripts from the scripts folder using robocopy instead of xcopy
+@REM echo Copying scripts...
+@REM robocopy "%INSTALLER_DIR%" "%PYRESOLVE_DIR%" *.py /NFL /NDL /NJH /NJS /NC /NS /NP
+@REM if errorlevel 8 (
+@REM     echo ERROR: Failed to copy scripts.
+@REM     echo Make sure you have administrator rights to create files in ProgramData.
+@REM     goto :error
+@REM )
+
 
 echo.
 echo Installation completed successfully!

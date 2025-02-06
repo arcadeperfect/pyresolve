@@ -665,14 +665,10 @@ class ShotBin:
         )  # disover valid image sequences
 
         while valid_sequence is None:
-            # sequence_path = versions_on_disk[next_version]
-            # seqs = FileSequence.find_sequences_in_path(
-            #     sequence_path
-            # )  # disover valid image sequences
+
+            # disover valid image sequences
             if seqs:
-                sequence = seqs[
-                    0
-                ]  # just going to assume the first one is the one we want (hopefully there is only one valid sequence in the folder)
+                sequence = seqs[0]  # just going to assume the first one is the one we want (hopefully there is only one valid sequence in the folder)
 
                 print(f"{sequence.frame_count} == {expected_frame_count}")
 
