@@ -53,3 +53,9 @@ P:/projects/ayon/rnd_alexh/Sequences/resolve/
 publish/render/rendercomp_Main
 exr
 
+
+
+
+
+V:\projects\mcdonalds\mcds86_pokemonGlobal\sequences\pokemon
+work\comp\renders\nuke\MainComp

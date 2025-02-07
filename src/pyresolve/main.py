@@ -50,8 +50,8 @@ mpi = kernel.active_media_pool_item
 
 # print(mpi.SetClipProperty("Alpha Mode", "None"))
 
-# generate_bins()
-generate_bins_and_assemble()
+generate_bins()
+# generate_bins_and_assemble()
 
 # oldest_version()
 # latest_version()

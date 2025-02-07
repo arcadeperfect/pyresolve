@@ -253,59 +253,6 @@ class ShotBin:
     def from_timeline_item(cls, item: TimelineItem, kernel: "Kernel") -> "ShotBin":
         return cls.from_media_pool_item(item.GetMediaPoolItem(), kernel)
 
-    # def populate_bin(self, depth: int):
-    #     print("Populating bin")
-    #     folder_contents = self.list_clip_names_in_bin()
-
-    #     clip_filesystem_paths = (
-    #         self.list_clip_paths_on_disk()
-    #         if depth < 1
-    #         else self.list_clip_paths_on_disk()[-depth:]
-    #     )
-
-    #     for clip_path in clip_filesystem_paths:
-    #         if clip_path.stem in folder_contents:
-    #             print(f"{clip_path.stem} already in bin")
-    #             continue
-
-    #         if self.media_type == MediaType.MOVIE:
-    #             self.kernel.import_movie(clip_path, self.folder)
-
-    #         if self.media_type == MediaType.SEQUENCE:
-    #             """
-    #             Search for valid sequences in the current directory, ignoring subfolders
-    #             """
-    #             clip_name = clip_path.name
-                
-    #             # First try to find sequences matching the folder name
-    #             found_sequences = FileSequence.match_components_in_path(
-    #                 Components(prefix=clip_name, extension=self.file_type.name.lower()),
-    #                 clip_path,
-    #             )
-
-    #             # If no sequences found with folder name, look for any valid sequences
-    #             if len(found_sequences) == 0:
-    #                 valid_sequences = FileSequence.find_sequences_in_path(clip_path)
-    #                 if len(valid_sequences) > 0:
-    #                     clip_name = valid_sequences[0].prefix
-    #                     found_sequences = valid_sequences
-    #                 else:
-    #                     # No valid sequences found in this directory, continue to next
-    #                     continue
-
-    #             # Import the found sequence
-    #             item = self.kernel.import_sequence(
-    #                 clip_path,
-    #                 clip_name,
-    #                 self.file_type.name.lower(),    
-    #                 self.folder,
-    #             )
-    #             try:
-    #                 if item:
-    #                     item[0].SetClipProperty("Alpha mode", "None")
-    #             except:
-    #                 pass  # Handle error appropriately
-
     def populate_bin(self, depth: int):
         print("Populating bin")
         folder_contents = self.list_clip_names_in_bin()
@@ -427,7 +374,7 @@ class ShotBin:
         raise ValueError(f"Invalid media type: {self.media_type}")
 
     @property
-    def versioned_clips_in_bin(self) -> dict[int, MediaPoolItem]:
+    def versioned_clips_in_folder(self) -> dict[int, MediaPoolItem]:
         """
         Returns a dictionary of versioned clips within the folder / bin.
 
@@ -580,14 +527,9 @@ class ShotBin:
                         versions_on_disk[t] = path
             
             versions_in_bin = {}
-
-            print("a")
             for clip in self.folder.GetClipList():
                 if t := self.get_clip_timestamp(clip):
-                    print(clip.GetName())
                     versions_in_bin[t] = clip
-
-            # print("b")
 
             disk_version_keys = sorted(list(versions_on_disk.keys()))
             next_version = expression(current_time, disk_version_keys)
@@ -638,10 +580,7 @@ class ShotBin:
                 return None
 
             versions_on_disk = self.versions_on_disk
-            versions_in_bin = self.versioned_clips_in_bin
-            versions_in_bin = {k: v for k, v in versions_in_bin.items() 
-                                if os.path.splitext(v.GetName())[-1].lstrip(".") == self.file_type.value[1]}
-
+            versions_in_bin = self.versioned_clips_in_folder
             disk_version_keys = sorted(list(versions_on_disk.keys()))
 
             next_version = expression(current_version_number, disk_version_keys)

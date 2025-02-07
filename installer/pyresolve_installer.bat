@@ -39,15 +39,13 @@ if not exist "%PYRESOLVE_DIR%" (
     )
 )
 
-@REM :: Copy all Python scripts from the scripts folder using robocopy instead of xcopy
-@REM echo Copying scripts...
-@REM robocopy "%INSTALLER_DIR%" "%PYRESOLVE_DIR%" *.py /NFL /NDL /NJH /NJS /NC /NS /NP
-@REM if errorlevel 8 (
-@REM     echo ERROR: Failed to copy scripts.
-@REM     echo Make sure you have administrator rights to create files in ProgramData.
-@REM     goto :error
-@REM )
-
+:: Copy all files from source to destination
+xcopy /Y /E /I "%INSTALLER_DIR%\*" "%PYRESOLVE_DIR%" >nul
+if errorlevel 1 (
+    echo ERROR: Failed to copy files to %PYRESOLVE_DIR%
+    echo Make sure you have administrator rights.
+    goto :error
+)
 
 echo.
 echo Installation completed successfully!

@@ -47,8 +47,6 @@ def generate_bins():
     #     print("Invalid file type")
     #     return
 
-    print(ft)
-
     sb = SequenceBin(
         name=name,
         sequence_root_path=path,
@@ -95,7 +93,13 @@ def generate_bins_and_assemble():
     elif file_type.lower() == "exr":
         ft = FileType.EXR
 
-    print(ft)
+    elif file_type.lower() == "png":
+        ft = FileType.PNG
+
+    else:
+        raise Exception("Invalid file type")
+
+    
 
     sb = SequenceBin(
         name=name,
@@ -213,7 +217,7 @@ def oldest_version():
     pass
 
 
-def _get_checkbox_values(numbers):
+def _get_checkbox_values(numbers: list[int]):
     # TODO invert order of checkboxes
 
     selections = []
@@ -222,6 +226,9 @@ def _get_checkbox_values(numbers):
 
     message = tk.Label(window, text="Select tracks to process:")
     message.pack()
+
+    numbers = sorted(numbers)
+    numbers.reverse()
 
     for num in numbers:
         var = tk.BooleanVar()
@@ -245,76 +252,128 @@ def _get_checkbox_values(numbers):
 
     return output
 
-
 def _get_path_and_subPath():
     window = tk.Tk()
     window.attributes("-topmost", True)
-
-    message = tk.Label(window, text="Enter path information:")
-    message.pack()
-
-    # TODO use file browsers instead of string field
-
-    # Create frame for name entry
-    name_frame = tk.Frame(window)
-    name_frame.pack(pady=5)
-    tk.Label(name_frame, text="Name:").pack(side=tk.LEFT)
-    name_var = tk.StringVar()
-    name_entry = tk.Entry(name_frame, textvariable=name_var)
-    name_entry.pack(side=tk.LEFT, padx=5)
-
-    # Create frame for path entry
-    path_frame = tk.Frame(window)
-    path_frame.pack(pady=5)
-    tk.Label(path_frame, text="Path:").pack(side=tk.LEFT)
-    path_var = tk.StringVar()
-    path_entry = tk.Entry(path_frame, textvariable=path_var)
-    path_entry.pack(side=tk.LEFT, padx=5)
-
-    # Create frame for sub path entry
-    subpath_frame = tk.Frame(window)
-    subpath_frame.pack(pady=5)
-    tk.Label(subpath_frame, text="Sub Path:").pack(side=tk.LEFT)
-    subpath_var = tk.StringVar()
-    subpath_entry = tk.Entry(subpath_frame, textvariable=subpath_var)
-    subpath_entry.pack(side=tk.LEFT, padx=5)
-
-    # Create frame for file type entry
-    fileType_frame = tk.Frame(window)
-    fileType_frame.pack(pady=5)
-    tk.Label(fileType_frame, text="File extension:").pack(side=tk.LEFT)
-    filetype_var = tk.StringVar()
-    filetype_entry = tk.Entry(fileType_frame, textvariable=filetype_var)
-    filetype_entry.pack(side=tk.LEFT, padx=5)
-
-    # Create frame for depth type entry
-    depth_frame = tk.Frame(window)
-    depth_frame.pack(pady=5)
-    tk.Label(depth_frame, text="Import depth:").pack(side=tk.LEFT)
-    depth_var = tk.StringVar()
-    depth_entry = tk.Entry(depth_frame, textvariable=depth_var)
-    depth_entry.pack(side=tk.LEFT, padx=5)
-
+    window.geometry("800x300")  # Set window size
+    
+    # Container frame for all entries
+    container = tk.Frame(window)
+    container.pack(padx=20, pady=10)
+    
+    # Label column width
+    label_width = 15
+    
+    # Entry widths
+    path_width = 80
+    small_width = 20
+    
+    # Create frames and entries
+    fields = [
+        ("Name:", "name", path_width),
+        ("Path:", "path", path_width),
+        ("Sub Path:", "subpath", path_width),
+        ("File extension:", "filetype", small_width),
+        ("Import depth:", "depth", small_width)
+    ]
+    
+    variables = {}
+    for label_text, var_name, width in fields:
+        frame = tk.Frame(container)
+        frame.pack(fill=tk.X, pady=5)
+        
+        label = tk.Label(frame, text=label_text, width=label_width, anchor='e')
+        label.pack(side=tk.LEFT, padx=(0, 5))
+        
+        var = tk.StringVar()
+        variables[var_name] = var
+        entry = tk.Entry(frame, textvariable=var, width=width)
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    
     results = []
-
     def on_submit():
-        # Fixed: removed duplicate subpath_var.get()
-        results.extend(
-            [
-                name_var.get(),
-                path_var.get(),
-                subpath_var.get(),
-                filetype_var.get(),
-                depth_var.get(),
-            ]
-        )
+        results.extend([
+            variables["name"].get(),
+            variables["path"].get(),
+            variables["subpath"].get(),
+            variables["filetype"].get(),
+            variables["depth"].get()
+        ])
         window.destroy()
-
+    
     tk.Button(window, text="Submit", command=on_submit).pack(pady=10)
     window.mainloop()
-
-    # Fixed: return None * 4 instead of None * 2 to match the number of values
+    
     return results if results else [None] * 5
+# def _get_path_and_subPath():
+#     window = tk.Tk()
+#     window.attributes("-topmost", True)
+
+#     message = tk.Label(window, text="Enter path information:")
+#     message.pack()
+
+#     # TODO use file browsers instead of string field
+
+#     # Create frame for name entry
+#     name_frame = tk.Frame(window)
+#     name_frame.pack(pady=5)
+#     tk.Label(name_frame, text="Name:").pack(side=tk.LEFT)
+#     name_var = tk.StringVar()
+#     name_entry = tk.Entry(name_frame, textvariable=name_var)
+#     name_entry.pack(side=tk.LEFT, padx=5)
+
+#     # Create frame for path entry
+#     path_frame = tk.Frame(window)
+#     path_frame.pack(pady=5)
+#     tk.Label(path_frame, text="Path:").pack(side=tk.LEFT)
+#     path_var = tk.StringVar()
+#     path_entry = tk.Entry(path_frame, textvariable=path_var)
+#     path_entry.pack(side=tk.LEFT, padx=5)
+
+#     # Create frame for sub path entry
+#     subpath_frame = tk.Frame(window)
+#     subpath_frame.pack(pady=5)
+#     tk.Label(subpath_frame, text="Sub Path:").pack(side=tk.LEFT)
+#     subpath_var = tk.StringVar()
+#     subpath_entry = tk.Entry(subpath_frame, textvariable=subpath_var)
+#     subpath_entry.pack(side=tk.LEFT, padx=5)
+
+#     # Create frame for file type entry
+#     fileType_frame = tk.Frame(window)
+#     fileType_frame.pack(pady=5)
+#     tk.Label(fileType_frame, text="File extension:").pack(side=tk.LEFT)
+#     filetype_var = tk.StringVar()
+#     filetype_entry = tk.Entry(fileType_frame, textvariable=filetype_var)
+#     filetype_entry.pack(side=tk.LEFT, padx=5)
+
+#     # Create frame for depth type entry
+#     depth_frame = tk.Frame(window)
+#     depth_frame.pack(pady=5)
+#     tk.Label(depth_frame, text="Import depth:").pack(side=tk.LEFT)
+#     depth_var = tk.StringVar()
+#     depth_entry = tk.Entry(depth_frame, textvariable=depth_var)
+#     depth_entry.pack(side=tk.LEFT, padx=5)
+
+#     results = []
+
+#     def on_submit():
+#         # Fixed: removed duplicate subpath_var.get()
+#         results.extend(
+#             [
+#                 name_var.get(),
+#                 path_var.get(),
+#                 subpath_var.get(),
+#                 filetype_var.get(),
+#                 depth_var.get(),
+#             ]
+#         )
+#         window.destroy()
+
+#     tk.Button(window, text="Submit", command=on_submit).pack(pady=10)
+#     window.mainloop()
+
+#     # Fixed: return None * 4 instead of None * 2 to match the number of values
+#     return results if results else [None] * 5
 
 
 def _clean_slashes(path_str):
